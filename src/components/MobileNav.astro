@@ -1,0 +1,23 @@
+---
+import Icon from './Icon.astro';
+---
+
+<nav class="fixed inset-x-0 bottom-0 z-40 flex border-t border-ink5/60 bg-ink pb-safe lg:hidden" aria-label="Navigasi bawah">  <div class="flex h-14 flex-1">
+    <a href="/" class="flex flex-1 flex-col items-center justify-start gap-0.5 pt-1 text-[10px] text-dim transition-colors hover:text-snow" data-nav>
+      <Icon name="home" class="h-5 w-5" />
+      Beranda
+    </a>
+    <button type="button" data-action="search" class="flex flex-1 flex-col items-center justify-start gap-0.5 pt-1 text-[10px] text-dim transition-colors hover:text-snow">
+      <Icon name="search" class="h-5 w-5" />
+      Cari
+    </button>
+    <a href="/?s=live" class="flex flex-1 flex-col items-center justify-start gap-0.5 pt-1 text-[10px] text-dim transition-colors hover:text-snow" data-nav>
+      <Icon name="broadcast" class="h-5 w-5 text-brand2" />
+      Live
+    </a>
+    <button type="button" data-action="menu" class="flex flex-1 flex-col items-center justify-start gap-0.5 pt-1 text-[10px] text-dim transition-colors hover:text-snow">
+      <Icon name="grid" class="h-5 w-5" />
+      Menu
+    </button>
+  </div>
+</nav>

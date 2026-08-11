@@ -1,0 +1,946 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import VideoPlayer from '../../components/VideoPlayer.astro';
+import VideoCard from '../../components/VideoCard.astro';
+import CameraMap from '../../components/CameraMap.astro';
+import Skeleton from '../../components/Skeleton.astro';
+import Icon from '../../components/Icon.astro';
+import { cameras, cameraByCam, relatedCams, typeLabel } from '../../lib/cameras';
+
+export function getStaticPaths() {
+  return cameras.map((c) => ({ params: { id: c.cam } }));
+}
+
+const { id } = Astro.params;
+const camera = cameraByCam(id!);
+
+if (!camera) {
+  return Astro.redirect('/');
+}
+
+const related = relatedCams(camera.cam, 48);
+const coords = camera.lat != null && camera.lon != null ? `${camera.lat}, ${camera.lon}` : '—';
+---
+
+<Layout
+  page="watch"
+  title={`${camera.namaAlias} — LIVE CCTV Denpasar`}
+  description={camera.ketLokasi || camera.namaLokasi}
+>
+  <div class="mx-auto max-w-[1800px] px-4 py-4 lg:px-6 lg:py-6">
+    <div class="lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-6 xl:gap-8">
+      <!-- Kolom utama: sticky penuh (player + judul + deskripsi) di desktop,
+           hanya kolom kanan yang bergerak saat scroll -->
+      <div class="relative min-w-0 lg:sticky lg:top-14 lg:z-10 lg:max-h-[calc(100vh-3.5rem)] lg:self-start lg:overflow-y-auto">
+        <!-- Skeleton player + teks -->
+        <div data-skeleton class="pointer-events-none absolute inset-0 z-20 space-y-6">
+          <Skeleton kind="player" />
+          <div class="space-y-3 px-1">
+            <Skeleton kind="lines" />
+            <Skeleton kind="lines" />
+          </div>
+        </div>
+
+        <div data-reveal>
+          <VideoPlayer cam={camera.cam} />
+
+        <div class="mt-6 mb-2 lg:mt-10 lg:mb-4">
+          <h1 class="text-lg font-bold leading-snug lg:text-xl">{camera.namaAlias}</h1>
+
+          <div class="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-2 text-xs">
+            <span class="live-pill">
+              <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-white"></span>
+              LIVE
+            </span>
+            <span class="rounded-full bg-ink3 px-2.5 py-1 font-medium">{typeLabel(camera)}</span>
+            <span class="rounded-full bg-ink3 px-2.5 py-1 font-medium">{camera.kategori}</span>
+            <span class="flex items-center gap-1 text-dim">
+              <Icon name="pin" class="h-3.5 w-3.5" />
+              {camera.namaLokasi}
+            </span>
+            <div class="flex w-full items-center justify-start gap-2 sm:ml-auto sm:w-auto sm:justify-end">
+              <button
+                id="btn-share"
+                class="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-ink3 px-3.5 py-2 font-medium text-snow transition-colors hover:bg-ink4 sm:flex-none sm:py-1.5"
+              >
+                <Icon name="share" class="h-4 w-4" />
+                Bagikan
+              </button>
+              <a
+                href={camera.url}
+                target="_blank"
+                rel="noreferrer"
+                class="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-ink3 px-3.5 py-2 font-medium text-snow transition-colors hover:bg-ink4 sm:flex-none sm:py-1.5"
+              >
+                <Icon name="external" class="h-4 w-4" />
+                Sumber
+              </a>
+            </div>
+          </div>
+
+          <div class="mt-4 rounded-xl border border-ink5/60 bg-ink2 p-4 text-sm">
+            <div class="flex flex-wrap items-start justify-between gap-4">
+              <div class="min-w-0">
+                <p class="font-semibold">{camera.ketLokasi || camera.namaLokasi}</p>
+                <p class="mt-1 text-dim">{camera.deskripsi || 'Live streaming CCTV ATCS Kota Denpasar.'}</p>
+              </div>
+              <div class="w-full text-left text-xs text-dim sm:w-auto sm:shrink-0 sm:text-right">
+                <p>
+                  ID Kamera: <span class="font-mono text-snow">{camera.cam}</span>
+                </p>
+                {camera.tahun && <p>Tahun: {camera.tahun}</p>}
+                {coords !== '—' && (
+                  <p>
+                    Koordinat:{' '}
+                    <button
+                      id="btn-coords"
+                      type="button"
+                      class="cursor-pointer font-mono text-snow underline decoration-dotted decoration-dim/50 underline-offset-2 transition-colors hover:text-brand hover:decoration-brand"
+                      title="Klik untuk melihat lokasi kamera di peta"
+                    >
+                      {coords}
+                    </button>
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <!-- Peta lokasi kamera (muncul saat koordinat diklik) -->
+            <CameraMap
+              cam={camera.cam}
+              namaAlias={camera.namaAlias}
+              lat={camera.lat}
+              lon={camera.lon}
+              kategori={camera.kategori}
+            />
+
+            <!-- Disclaimer: latar kuning + link ke situs resmi yang bisa diklik -->
+            <div class="mt-4 rounded-lg border border-yellow-400/30 bg-yellow-400/15 px-3 py-2.5 text-[11px] leading-relaxed text-dim dark:bg-yellow-400/10">
+              <p>
+                Bukan situs resmi — halaman tampilan agregat untuk memudahkan pemantauan. Seluruh data dan
+                stream kamera merupakan milik Pemerintah Kota Denpasar (Dishub) melalui{' '}
+                <a
+                  href="https://atcs.denpasarkota.go.id"
+                  target="_blank"
+                  rel="noreferrer"
+                  class="font-semibold text-amber-700 underline decoration-amber-700/40 underline-offset-2 transition-colors hover:text-amber-600 hover:decoration-amber-600 dark:text-amber-400 dark:decoration-amber-400/40 dark:hover:text-amber-300"
+                >
+                  atcs.denpasarkota.go.id
+                </a>
+                .
+              </p>
+            </div>
+
+          </div>
+
+          <!-- Kartu fitur premium: analisa kepadatan berbasis kecerdasan buatan (kartu terpisah) -->
+          <div id="ai-wrap" class="mt-6 rounded-xl border border-amber-400/25 bg-ink2 p-4">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
+              <div class="min-w-0 flex-1">
+                <span
+                  class="inline-flex items-center gap-1 rounded-md bg-gradient-to-r from-amber-400 to-yellow-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-ink shadow-sm"
+                  title="Fitur premium"
+                >
+                  ✦ Premium
+                </span>
+                <p class="mt-2 text-sm leading-relaxed text-dim">
+                  Coba fitur premium analisa kepadatan kendaraan berbasis kecerdasan buatan — hitung kendaraan
+                  per jenis, prediksi probabilitas, dan kesimpulan analitis.
+                </p>
+              </div>
+              <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-2.5">
+                <button
+                  id="btn-ai"
+                  data-cam={camera.cam}
+                  class="flex w-full items-center justify-center gap-1.5 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand/30 transition-all hover:bg-brand2 hover:shadow-brand/40 active:scale-[0.96] sm:w-auto"
+                >
+                  <Icon name="sparkles" class="h-4 w-4" />
+                  Analisa Sekarang
+                </button>
+                <!-- Tombol unduh PDF: tersembunyi sampai ada hasil analisis (lihat script) -->
+                <div id="export-wrap" class="hidden w-full shrink-0 sm:w-auto">
+                  <button
+                    id="btn-export"
+                    type="button"
+                    data-cam={camera.cam}
+                    data-nama={camera.namaAlias}
+                    data-id={camera.cam}
+                    data-lokasi={camera.namaLokasi}
+                    data-kategori={camera.kategori}
+                    data-tipe={typeLabel(camera)}
+                    data-coords={coords}
+                    data-tahun={camera.tahun || ''}
+                    class="flex w-full items-center justify-center gap-1.5 rounded-full border border-ink5 bg-ink3 px-5 py-2.5 text-sm font-semibold text-snow transition-colors hover:bg-ink4 active:scale-[0.96] sm:w-auto"
+                  >
+                    <Icon name="pdf" class="h-4 w-4" />
+                    Unduh PDF
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div id="ai-result" class="mt-4 hidden"></div>
+
+            <!-- Warning transparansi: fitur tambahan dengan Kecerdasan Buatan (embedded API key Gemini) -->
+            <div
+              class="mt-4 flex items-start gap-2.5 rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-2.5 text-xs leading-relaxed text-dim dark:bg-amber-400/5"
+            >
+              <span class="mt-0.5 shrink-0 text-sm" aria-hidden="true">⚠️</span>
+              <p>
+                <span class="font-semibold text-snow">Catatan transparansi:</span> fitur tambahan ini menggunakan{' '}
+                <span class="font-medium text-snow">Kecerdasan Buatan</span> dengan{' '}
+                <span class="font-medium text-snow">embedded API key Google Gemini</span> untuk memperkirakan
+                kepadatan kendaraan dari video kamera. Hasil bersifat{' '}
+                <span class="font-medium text-snow">estimasi analitis</span> dan bukan data resmi — dapat berbeda
+                dari kondisi aktual di lapangan.
+              </p>
+            </div>
+          </div>
+
+          <!-- Info sumber di bawah deskripsi video -->
+          <div class="mt-4 flex items-start gap-3 rounded-xl border border-ink5/60 bg-ink2 p-4 text-xs leading-relaxed text-dim">
+            <Icon name="info" class="mt-0.5 h-4 w-4 shrink-0 text-sky-500" />
+            <p>
+              <span class="font-semibold text-snow">ATCS TV</span> — pemantauan CCTV lalu lintas Kota Denpasar secara real-time.
+              Sumber data resmi dari{' '}
+              <a href="https://atcs.denpasarkota.go.id" target="_blank" rel="noreferrer" class="text-sky-500 hover:text-sky-400">
+                atcs.denpasarkota.go.id
+              </a>{' '}
+              (Dishub Kota Denpasar).
+            </p>
+          </div>
+        </div>
+      </div>
+      </div>
+
+      <!-- Video terkait -->
+      <aside class="relative mt-6 min-w-0 lg:mt-0">
+        <h2 class="mb-3 flex items-center gap-2 text-sm font-semibold">
+          <Icon name="grid" class="h-4 w-4 text-dim" />
+          Kamera Lainnya
+        </h2>
+
+        <!-- Skeleton related -->
+        <div data-skeleton class="pointer-events-none absolute inset-x-0 top-9 z-20 space-y-3">
+          {Array.from({ length: 6 }).map(() => <Skeleton kind="compact" />)}
+        </div>
+
+        <div data-reveal>
+          <div id="related-grid" class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
+            {related.map((c) => (
+              <VideoCard camera={c} variant="compact" />
+            ))}
+          </div>
+          <button
+            id="btn-loadmore-related"
+            class="mt-5 hidden w-full items-center justify-center gap-2 rounded-full border border-ink5 bg-ink3 px-4 py-2 text-sm font-medium transition-colors hover:bg-ink4 flex"
+          >
+            <Icon name="more" class="h-4 w-4" />
+            Muat Lebih Banyak
+          </button>
+          <a href="/" class="mt-4 block text-center text-sm font-medium text-sky-500 transition-colors hover:text-sky-400">
+            Lihat semua kamera →
+          </a>
+        </div>
+      </aside>
+    </div>
+  </div>
+</Layout>
+
+<script>
+  import { Chart, BarController, BarElement, CategoryScale, LinearScale, Tooltip } from 'chart.js';
+  Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip);
+  import { jsPDF } from 'jspdf';
+
+  // ---------- Load more daftar kamera terkait (12 per batch) ----------
+  const relatedCards = Array.from(document.querySelectorAll<HTMLElement>('#related-grid [data-cam-card]'));
+  const btnRelated = document.getElementById('btn-loadmore-related') as HTMLButtonElement | null;
+  const REL_BATCH = 12;
+  let relatedVisible = REL_BATCH;
+
+  function applyRelated() {
+    relatedCards.forEach((c, i) => c.classList.toggle('hidden', i >= relatedVisible));
+    if (btnRelated) btnRelated.classList.toggle('hidden', relatedVisible >= relatedCards.length);
+  }
+
+  btnRelated?.addEventListener('click', () => {
+    if (btnRelated.dataset.loading) return;
+    btnRelated.dataset.loading = '1';
+    const original = btnRelated.innerHTML;
+    btnRelated.innerHTML =
+      '<span class="h-4 w-4 animate-spin rounded-full border-2 border-ink5 border-t-snow"></span> Memuat...';
+    btnRelated.classList.add('pointer-events-none', 'opacity-70');
+    window.setTimeout(() => {
+      relatedVisible += REL_BATCH;
+      applyRelated();
+      btnRelated.innerHTML = original;
+      btnRelated.classList.remove('pointer-events-none', 'opacity-70');
+      delete btnRelated.dataset.loading;
+    }, 450);
+  });
+
+  applyRelated();
+
+  // ---------- Toast kecil (pesan singkat di tengah atas) ----------
+  function toast(msg: string) {
+    const t = document.createElement('div');
+    t.textContent = msg;
+    t.className =
+      'fixed left-1/2 top-20 z-[70] -translate-x-1/2 rounded-full bg-snow px-4 py-2 text-sm font-medium text-ink shadow-xl transition-opacity duration-300';
+    document.body.appendChild(t);
+    window.setTimeout(() => {
+      t.style.opacity = '0';
+      window.setTimeout(() => t.remove(), 300);
+    }, 2200);
+  }
+
+  // Tombol Bagikan → salin tautan
+  const shareBtn = document.getElementById('btn-share');
+  shareBtn?.addEventListener('click', async () => {
+    const url = location.href;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      /* fallback */
+      const ta = document.createElement('textarea');
+      ta.value = url;
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+      } catch {}
+      ta.remove();
+    }
+    toast('Link disalin!');
+  });
+
+  // ---------- Export hasil analisis ke PDF (jsPDF) ----------
+  const btnExport = document.getElementById('btn-export') as HTMLButtonElement | null;
+
+  const fmtDT = (ms: number) =>
+    new Date(ms).toLocaleString('id-ID', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+
+  const TREN_LABEL: Record<string, string> = { naik: 'Meningkat', stabil: 'Stabil', turun: 'Menurun' };
+  const RED: [number, number, number] = [204, 0, 0];
+  const BLUE: [number, number, number] = [0, 120, 200];
+
+  function pdfSection(doc: any, y: number, title: string, accent: [number, number, number]): number {
+    if (y > 252) {
+      doc.addPage();
+      y = 22;
+    }
+    y += 3.5;
+    doc.setFillColor(accent[0], accent[1], accent[2]);
+    doc.rect(14, y, 3, 6, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11.5);
+    doc.setTextColor(30, 30, 30);
+    doc.text(title.toUpperCase(), 20.5, y + 4.6);
+    doc.setDrawColor(230, 230, 230);
+    doc.setLineWidth(0.3);
+    doc.line(14, y + 8, 196, y + 8);
+    return y + 11;
+  }
+
+  function pdfKV(doc: any, y: number, label: string, value: string): number {
+    if (y > 275) {
+      doc.addPage();
+      y = 22;
+    }
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(125, 125, 125);
+    doc.text(label, 14, y);
+    const lw = doc.getTextWidth(label) + 3;
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(40, 40, 40);
+    const lines = doc.splitTextToSize(String(value), 182 - lw);
+    doc.text(lines, 14 + lw, y);
+    return y + 4.4 + (lines.length - 1) * 3.6;
+  }
+
+  function pdfPara(doc: any, y: number, label: string | null, text: string): number {
+    const lines = doc.splitTextToSize(String(text), 182);
+    const need = (label ? 5 : 0) + lines.length * 4 + 2;
+    if (y + need > 280) {
+      doc.addPage();
+      y = 22;
+    }
+    if (label) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(125, 125, 125);
+      doc.text(label, 14, y);
+      y += 4.5;
+    }
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9.5);
+    doc.setTextColor(50, 50, 50);
+    doc.text(lines, 14, y);
+    return y + lines.length * 4 + 2;
+  }
+
+  function pdfTable(
+    doc: any,
+    y: number,
+    headers: string[],
+    rows: (string | number)[][],
+    colW: number[]
+  ): number {
+    const h = 7;
+    // Pindah halaman jika tabel (header + semua baris) tidak muat di sisa halaman
+    const tableH = (rows.length + 1) * h + 3;
+    if (y + tableH > 283) {
+      doc.addPage();
+      y = 22;
+    }
+    doc.setFillColor(238, 238, 238);
+    doc.rect(14, y, 182, h, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(70, 70, 70);
+    let x = 14;
+    headers.forEach((hd, i) => {
+      doc.text(hd, x + 2, y + 4.6);
+      x += colW[i];
+    });
+    y += h;
+    // garis vertikal antar kolom
+    let acc = 0;
+    doc.setDrawColor(240, 240, 240);
+    for (let i = 1; i < colW.length; i++) {
+      acc += colW[i - 1];
+      doc.line(14 + acc, y - h, 14 + acc, y + rows.length * h);
+    }
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    rows.forEach((row, ri) => {
+      if (ri % 2 === 1) {
+        doc.setFillColor(248, 248, 248);
+        doc.rect(14, y, 182, h, 'F');
+      }
+      doc.setTextColor(40, 40, 40);
+      if (row[0] === 'Total') {
+        doc.setFont('helvetica', 'bold');
+      } else {
+        doc.setFont('helvetica', 'normal');
+      }
+      let rx = 14;
+      row.forEach((cell, ci) => {
+        // Kolom kategori rata kiri; kolom angka rata kanan agar mudah dibaca
+        if (ci === 0) {
+          doc.text(String(cell), rx + 2, y + 4.6);
+        } else {
+          doc.text(String(cell), rx + colW[ci] - 2, y + 4.6, { align: 'right' });
+        }
+        rx += colW[ci];
+      });
+      y += h;
+    });
+    doc.setFont('helvetica', 'normal');
+    return y + 3;
+  }
+
+  function exportPDF() {
+    if (!btnExport || !lastChart?.d) {
+      toast('Belum ada hasil analisis — klik "Analisa Sekarang" dulu.');
+      return;
+    }
+    const d = lastChart.d;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const W = 210;
+    let y = 0;
+
+    // ----- Header band merah -----
+    doc.setFillColor(RED[0], RED[1], RED[2]);
+    doc.rect(0, 0, W, 30, 'F');
+    // Logo: ikon kamera CCTV digambar vektor di tengah lingkaran putih
+    doc.setFillColor(255, 255, 255);
+    doc.circle(17, 15, 6.8, 'F');
+    doc.setFillColor(RED[0], RED[1], RED[2]);
+    doc.roundedRect(11.9, 12.2, 10.2, 4.9, 1, 1, 'F'); // badan kamera
+    doc.rect(15.9, 17.1, 2.2, 1.3, 'F'); // penyangga bawah
+    doc.roundedRect(15.2, 18.4, 3.6, 1, 0.5, 0.5, 'F'); // alas penyangga
+    doc.setFillColor(255, 255, 255);
+    doc.circle(17, 14.65, 2.15, 'F'); // lensa luar
+    doc.setFillColor(RED[0], RED[1], RED[2]);
+    doc.circle(17, 14.65, 0.85, 'F'); // lensa dalam
+    doc.setFillColor(0, 190, 80);
+    doc.circle(12.9, 12.9, 0.35, 'F'); // LED hidup
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(15);
+    doc.setTextColor(255, 255, 255);
+    doc.text('LAPORAN ANALISIS LALU LINTAS', 30, 12.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.text('Pemantauan CCTV Kota Denpasar — Berbantuan Kecerdasan Buatan', 30, 19);
+    doc.setFontSize(7);
+    doc.text('Sumber data: atcs.denpasarkota.go.id (Dishub Kota Denpasar)', 30, 24.5);
+    // Badge ATCS TV di pojok kanan atas
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(255, 255, 255);
+    doc.text('ATCS TV', 196, 12.5, { align: 'right' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(255, 220, 220);
+    doc.text('CCTV Denpasar', 196, 17, { align: 'right' });
+    y = 36;
+
+    // ----- Detail kamera CCTV -----
+    y = pdfSection(doc, y, 'Detail Kamera CCTV', RED);
+    y = pdfKV(doc, y, 'Nama', btnExport.dataset.nama || '');
+    y = pdfKV(doc, y, 'ID', btnExport.dataset.id || '');
+    y = pdfKV(doc, y, 'Lokasi', btnExport.dataset.lokasi || '');
+    const kat = [btnExport.dataset.kategori, btnExport.dataset.tipe].filter(Boolean).join(' · ');
+    y = pdfKV(doc, y, 'Kategori', kat || '—');
+    y = pdfKV(doc, y, 'Koordinat', btnExport.dataset.coords || '—');
+    if (btnExport.dataset.tahun) y = pdfKV(doc, y, 'Tahun', btnExport.dataset.tahun);
+
+    // ----- Detail analisis (periode & durasi) -----
+    y = pdfSection(doc, y, 'Detail Analisis', RED);
+    const at = Number(d.at) || Date.now();
+    const dur = Number(d.durasiDetik) || 30;
+    y = pdfKV(doc, y, 'Periode pengamatan', `${fmtDT(at - dur * 1000)} s.d. ${fmtDT(at)}`);
+    y = pdfKV(doc, y, 'Durasi analisis', `${dur} detik`);
+    y = pdfKV(doc, y, 'Tingkat kepadatan', LVL_META[d.kepadatan]?.label || 'Sedang');
+    y = pdfKV(doc, y, 'Kecepatan rata-rata', `${n(d.kecepatanRata)} km/jam`);
+    y = pdfKV(doc, y, 'Tingkat keyakinan', `${clampNum(d.keyakinan)}%`);
+    y = pdfKV(doc, y, 'Waktu laporan dibuat', fmtDT(Date.now()));
+
+    // ----- Hasil pengamatan (tabel + diagram) -----
+    y = pdfSection(doc, y, 'Hasil Pengamatan', RED);
+    const ttl = n(d.total);
+    const pct = (v: any) => (ttl ? Math.round((n(v) / ttl) * 100) + '%' : '0%');
+    const catRows = [
+      ['Mobil', n(d.mobil), n(d.perMenit?.mobil), pct(d.mobil)],
+      ['Motor', n(d.motor), n(d.perMenit?.motor), pct(d.motor)],
+      ['Truk', n(d.truk), n(d.perMenit?.truk), pct(d.truk)],
+      ['Bus', n(d.bus), n(d.perMenit?.bus), pct(d.bus)],
+      ['Pickup', n(d.pickup), n(d.perMenit?.pickup), pct(d.pickup)],
+      ['Sepeda', n(d.sepeda), n(d.perMenit?.sepeda), pct(d.sepeda)],
+      ['Pejalan kaki', n(d.pejalanKaki), n(d.perMenit?.pejalanKaki), pct(d.pejalanKaki)],
+    ].filter((r) => (r[1] as number) > 0 || ['Mobil', 'Motor', 'Truk', 'Bus'].includes(r[0] as string));
+    catRows.push(['Total', ttl, n(d.perMenit?.total), '100%']);
+    y = pdfTable(doc, y, ['Kategori', `Jumlah (${dur} dtk)`, 'Perkiraan / menit', 'Porsi'], catRows, [58, 44, 46, 34]);
+
+    // Diagram batang dari Chart.js disematkan sebagai gambar.
+    // Lebar menyesuaikan sisa ruang agar diagram SELALU muat di halaman 1
+    // (halaman 2 dijamin mulai dari Prediksi 30 Menit).
+    let brokeForChart = false;
+    try {
+      if (chart) {
+        // pixelRatio 1: ekspor 1x (bukan 2x Retina) agar ukuran file PDF lebih ramping
+        const img = chart.toBase64Image('image/png', 1, 1);
+        const ratio = (chart.canvas?.height || 240) / (chart.canvas?.width || 664);
+        const availH = 283 - y - 6;
+        let cw = Math.min(150, availH / ratio);
+        if (cw < 60) {
+          // Ruang tersisa terlalu sempit — bawa diagram ke halaman sendiri
+          doc.addPage();
+          y = 22;
+          cw = 150;
+          brokeForChart = true;
+        }
+        const ch = cw * ratio;
+        doc.addImage(img, 'PNG', 14 + (182 - cw) / 2, y, cw, ch);
+        y += ch + 6;
+      }
+    } catch {}
+
+    // ----- Halaman 2 mulai dari Prediksi 30 Menit (biar rapi) -----
+    const p = d.prediksi || {};
+    const perluHalaman2 = !!p && (clampNum(p.probNaik) > 0 || clampNum(p.probMacet) > 0 || p.proyeksi || p.rekomendasi || d.kesimpulan);
+    if (perluHalaman2) {
+      if (!brokeForChart) doc.addPage();
+      y = 22;
+    }
+    const hasPred = clampNum(p.probNaik) > 0 || clampNum(p.probMacet) > 0 || p.proyeksi || p.rekomendasi;
+    if (hasPred) {
+      y = pdfSection(doc, y, 'Prediksi 30 Menit', BLUE);
+      y = pdfKV(doc, y, 'Tren', TREN_LABEL[String(p.tren).toLowerCase()] || 'Stabil');
+      y = pdfKV(doc, y, 'Volume meningkat', `${clampNum(p.probNaik)}%`);
+      y = pdfKV(doc, y, 'Potensi macet', `${clampNum(p.probMacet)}%`);
+      if (p.proyeksi) y = pdfPara(doc, y, 'Proyeksi', p.proyeksi);
+      if (p.rekomendasi) y = pdfPara(doc, y, 'Rekomendasi', p.rekomendasi);
+    }
+
+    // ----- Kesimpulan analisis -----
+    if (d.kesimpulan) {
+      y = pdfSection(doc, y, 'Kesimpulan Analisis', BLUE);
+      y = pdfPara(doc, y, null, d.kesimpulan);
+    }
+
+    // ----- Footer tiap halaman -----
+    const pages = doc.getNumberOfPages();
+    for (let i = 1; i <= pages; i++) {
+      doc.setPage(i);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.setTextColor(155, 155, 155);
+      doc.text(
+        'Laporan ini dihasilkan otomatis dengan bantuan Kecerdasan Buatan dan bersifat estimasi analitis — bukan data resmi.',
+        14,
+        290
+      );
+      doc.text(`Halaman ${i} dari ${pages}`, 196, 290, { align: 'right' });
+    }
+
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    doc.save(`Laporan-Analisis-ATCS-${aiCam || 'kamera'}-${stamp}.pdf`);
+    toast('Laporan PDF berhasil diunduh!');
+  }
+
+  btnExport?.addEventListener('click', exportPDF);
+
+  // ---------- Analisa AI: cek keramaian kendaraan (on-demand) ----------
+  const btnAI = document.getElementById('btn-ai') as HTMLButtonElement | null;
+  const aiResult = document.getElementById('ai-result') as HTMLElement | null;
+  const aiCam = btnAI?.dataset.cam || '';
+  // Same-origin: di dev, endpoint AI terpasang di dev server (vite-plugin-ai).
+  // Jika memakai server standalone (node server/index.mjs), set ke 'http://localhost:8787'.
+  const AI_BASE = '';
+
+  function aiBox(inner: string) {
+    if (!aiResult) return;
+    aiResult.innerHTML = inner;
+    aiResult.classList.remove('hidden');
+  }
+
+  const LVL_META: Record<string, { label: string; cls: string }> = {
+    rendah: { label: 'Lancar', cls: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30 dark:text-emerald-400' },
+    sedang: { label: 'Sedang', cls: 'bg-yellow-400/15 text-yellow-600 border-yellow-500/30 dark:text-yellow-400' },
+    tinggi: { label: 'Padat', cls: 'bg-orange-500/15 text-orange-600 border-orange-500/30 dark:text-orange-400' },
+    macet: { label: 'Macet', cls: 'bg-red-500/15 text-red-600 border-red-500/30 dark:text-red-400' },
+  };
+
+  // ---------- render hasil analisa AI: diagram batang + statistik + prediksi ----------
+  const esc = (s: any) =>
+    String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
+  const n = (v: any) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Math.round(Number(v)) : 0);
+  const clampNum = (v: any, lo = 0, hi = 100) => Math.min(hi, Math.max(lo, n(v)));
+
+  function renderAI(d: any) {
+    const lvl = LVL_META[d.kepadatan] || LVL_META.sedang;
+    const time = new Date(d.at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    const keyakinan = clampNum(d.keyakinan);
+
+    // Kategori + warna batang. Kategori baru (pickup/sepeda/pejalan kaki) hanya
+    // ditampilkan jika angkanya > 0; 4 kategori utama selalu tampil.
+    const cats = [
+      { key: 'mobil', label: 'Mobil', hex: '#0ea5e9' },
+      { key: 'motor', label: 'Motor', hex: '#10b981' },
+      { key: 'truk', label: 'Truk', hex: '#f97316' },
+      { key: 'bus', label: 'Bus', hex: '#8b5cf6' },
+      { key: 'pickup', label: 'Pickup', hex: '#06b6d4' },
+      { key: 'sepeda', label: 'Sepeda', hex: '#84cc16' },
+      { key: 'pejalanKaki', label: 'Pejalan', hex: '#f43f5e' },
+    ];
+    const items = cats
+      .map((c) => ({ ...c, count: n(d[c.key]), pm: n(d.perMenit?.[c.key]) }))
+      .filter((c) => c.count > 0 || ['mobil', 'motor', 'truk', 'bus'].includes(c.key));
+
+    const probBar = (label: string, pct: any, grad: string) => `
+      <div>
+        <div class="flex items-center justify-between text-[10px]">
+          <span class="text-dim">${label}</span>
+          <span class="font-bold text-snow">${clampNum(pct)}%</span>
+        </div>
+        <div class="mt-1 h-2 w-full overflow-hidden rounded-full bg-ink4">
+          <div
+            class="ai-prob-fill h-full rounded-full bg-gradient-to-r ${grad}"
+            style="width:${clampNum(pct)}%"
+          ></div>
+        </div>
+      </div>`;
+
+    const p = d.prediksi || {};
+    const trenMap: Record<string, { l: string; c: string }> = {
+      naik: { l: '↑ Meningkat', c: 'bg-amber-500/15 text-amber-600 border-amber-500/30 dark:text-amber-400' },
+      stabil: { l: '→ Stabil', c: 'bg-sky-500/15 text-sky-600 border-sky-500/30 dark:text-sky-400' },
+      turun: { l: '↓ Menurun', c: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30 dark:text-emerald-400' },
+    };
+    const tren = trenMap[String(p.tren).toLowerCase()] || trenMap.stabil;
+    const hasPrediksi = !!(clampNum(p.probNaik) > 0 || clampNum(p.probMacet) > 0 || p.proyeksi || p.rekomendasi);
+
+    // Ada hasil analisis → tampilkan tombol unduh PDF
+    document.getElementById('export-wrap')?.classList.remove('hidden');
+
+    aiBox(`
+      <div class="overflow-hidden rounded-lg border border-ink5/60">
+        <!-- Header -->
+        <div class="bg-ink2 px-3 py-2">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <p class="text-xs font-semibold text-snow">📊 Hasil Analisis Berbantuan Kecerdasan Buatan</p>
+            <div class="flex items-center gap-1.5">
+              ${keyakinan ? `<span class="rounded-full border border-ink5 bg-ink3 px-2 py-0.5 text-[11px] font-medium text-dim">Keyakinan ${keyakinan}%</span>` : ''}
+              <span class="rounded-full border px-2 py-0.5 text-[11px] font-bold ${lvl.cls}">${lvl.label}</span>
+            </div>
+          </div>
+          <p class="mt-1 text-[10px] text-dim">
+            Analisis ${d.cache ? '(hasil terbaru)' : d._lokal ? '(tersimpan di perangkat)' : ''} pukul ${time} · durasi ${d.durasiDetik || 30} detik · perkiraan berbasis kecerdasan buatan
+          </p>
+        </div>
+
+        <!-- Diagram batang (Chart.js) + statistik -->
+        <div class="border-t border-ink5/60 bg-ink2 px-3 pb-3">
+          <p class="pt-2.5 text-[10px] font-semibold uppercase tracking-wide text-dim">Kendaraan terlihat — ${d.durasiDetik || 30} detik</p>
+          <div class="ai-chart-wrap mt-2 h-60 w-full"><canvas id="ai-chart" aria-label="Diagram batang jumlah kendaraan per jenis" role="img"></canvas></div>
+          <p class="mt-1 text-[10px] text-dim">Arahkan kursor (atau ketuk) batang untuk detail jumlah, perkiraan per menit, dan porsi.</p>
+
+          <div class="mt-3 grid grid-cols-3 gap-2 text-center">
+            <div class="rounded-lg bg-ink3 px-2 py-2">
+              <p class="text-base font-bold leading-none text-snow">${n(d.total)}</p>
+              <p class="mt-1 text-[9px] uppercase tracking-wide text-dim">Total / ${d.durasiDetik || 30} dtk</p>
+            </div>
+            <div class="rounded-lg bg-ink3 px-2 py-2">
+              <p class="text-base font-bold leading-none text-snow">±${n(d.perMenit?.total)}</p>
+              <p class="mt-1 text-[9px] uppercase tracking-wide text-dim">Per menit</p>
+            </div>
+            <div class="rounded-lg bg-ink3 px-2 py-2">
+              <p class="text-base font-bold leading-none text-snow">${n(d.kecepatanRata)}</p>
+              <p class="mt-1 text-[9px] uppercase tracking-wide text-dim">Km/jam rata²</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Prediksi probabilitas 30 menit -->
+        ${hasPrediksi ? `
+        <div class="border-t border-ink5/60 bg-ink2 px-3 py-3">
+          <div class="flex items-center justify-between gap-2">
+            <p class="text-xs font-semibold text-snow">🔮 Prediksi 30 Menit</p>
+            <span class="rounded-full border px-2 py-0.5 text-[11px] font-bold ${tren.c}">${tren.l}</span>
+          </div>
+          <div class="mt-3 space-y-2.5">
+            ${p.probNaik != null ? probBar('Volume kendaraan meningkat', p.probNaik, 'from-sky-500 to-blue-500') : ''}
+            ${p.probMacet != null ? probBar('Potensi macet / antrean panjang', p.probMacet, 'from-rose-500 to-red-500') : ''}
+          </div>
+          ${p.proyeksi ? `<p class="mt-3 text-[11px] leading-relaxed text-dim">${esc(p.proyeksi)}</p>` : ''}
+          ${p.rekomendasi ? `<p class="mt-2 text-[11px] leading-relaxed"><span class="font-semibold text-snow">Saran: </span><span class="text-dim">${esc(p.rekomendasi)}</span></p>` : ''}
+        </div>` : ''}
+
+        <!-- Kesimpulan analisis -->
+        ${d.kesimpulan || d.deskripsi ? `<div class="border-t border-ink5/60 bg-ink2 px-3 py-2.5"><p class="text-[10px] font-semibold uppercase tracking-wide text-dim">Kesimpulan Analisis</p><p class="mt-1 text-[11px] leading-relaxed text-dim">${esc(d.kesimpulan || d.deskripsi)}</p></div>` : ''}
+      </div>
+    `);
+    renderChart(d, items);
+  }
+
+  // ---------- Diagram batang Chart.js (hover tooltip + label nilai, adaptif tema) ----------
+  let chart: any = null;
+  let lastChart: any = null;
+
+  function chartTheme() {
+    const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    return {
+      dark,
+      text: dark ? '#e8e8e8' : '#1b1b1b',
+      dim: dark ? '#aaaaaa' : '#5c5c5c',
+      grid: dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+      tooltipBg: dark ? '#1f1f1f' : '#ffffff',
+      tooltipBorder: dark ? '#3f3f3f' : '#c7c7c7',
+    };
+  }
+
+  function renderChart(d: any, items: any[]) {
+    // Destroy dahulu agar instance lama tidak tertinggal jika canvas diganti panel error.
+    if (chart) {
+      chart.destroy();
+      chart = null;
+    }
+    const canvas = document.getElementById('ai-chart') as HTMLCanvasElement | null;
+    if (!canvas) return;
+    lastChart = { d, items };
+    const th = chartTheme();
+    const counts = items.map((c) => c.count);
+    const ttl = counts.reduce((a, b) => a + b, 0) || 1;
+    const perMinMap: Record<string, number> = {};
+    items.forEach((c) => (perMinMap[c.label] = c.pm));
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    chart = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels: items.map((c) => c.label),
+        datasets: [
+          {
+            data: counts,
+            backgroundColor: items.map((c) => c.hex),
+            borderRadius: 6,
+            maxBarThickness: 48,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        // Ruang cadangan di atas area plot agar label nilai tidak terpotong
+        // saat batangnya tinggi (batang maks ~22px dari tepi atas chart).
+        layout: { padding: { top: 24 } },
+        animation: reduced ? false : { duration: 700, easing: 'easeOutQuart' },
+        plugins: {
+          // Jangan clip saat animasi — label nilai tetap terlihat utuh
+          clip: false,
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: th.tooltipBg,
+            titleColor: th.text,
+            bodyColor: th.text,
+            borderColor: th.tooltipBorder,
+            borderWidth: 1,
+            padding: 10,
+            displayColors: true,
+            callbacks: {
+              title: (t: any) => t[0]?.label || '',
+              label: (ctx: any) => {
+                const v = ctx.parsed.y;
+                const pm = perMinMap[ctx.label] ?? 0;
+                const share = Math.round((v / ttl) * 100);
+                return [`Jumlah: ${v} kendaraan`, `Perkiraan: ±${pm}/menit`, `Porsi: ${share}% dari total`];
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            ticks: { color: th.dim, font: { size: 11 } },
+            grid: { display: false },
+            border: { color: th.grid },
+          },
+          y: {
+            beginAtZero: true,
+            ticks: { color: th.dim, precision: 0 },
+            grid: { color: th.grid },
+            border: { display: false },
+          },
+        },
+      },
+      plugins: [
+        {
+          id: 'valueLabels',
+          afterDatasetsDraw(ch: any) {
+            const { ctx } = ch;
+            const meta = ch.getDatasetMeta(0);
+            ctx.save();
+            ctx.font = '700 13px Roboto, system-ui, sans-serif';
+            ctx.fillStyle = th.text;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            // Halo lembut warna latar agar angka tetap terbaca di atas grid
+            ctx.shadowColor = th.tooltipBg;
+            ctx.shadowBlur = 4;
+            meta.data.forEach((bar: any, i: number) => {
+              if (counts[i] > 0) ctx.fillText(String(counts[i]), bar.x, bar.y - 5);
+            });
+            ctx.restore();
+          },
+        },
+      ],
+    });
+  }
+
+  // Render ulang chart saat tema berubah (pola sama seperti CameraMap)
+  new MutationObserver(() => {
+    if (lastChart) renderChart(lastChart.d, lastChart.items);
+  }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  // ---------- Simpan hasil analisis ke localStorage agar muncul instan saat dibuka lagi ----------
+  const LS_PREFIX = 'atcs-ai:';
+
+  function saveAI(cam: string, data: any) {
+    try {
+      localStorage.setItem(LS_PREFIX + cam, JSON.stringify(data));
+      // Prune: pertahankan maks 60 kamera terbaru agar localStorage tidak membengkak
+      const keys = Object.keys(localStorage).filter((k) => k.startsWith(LS_PREFIX));
+      if (keys.length > 60) {
+        const getAt = (k: string) => {
+          try {
+            return JSON.parse(localStorage.getItem(k) || '{}').at || 0;
+          } catch {
+            return 0;
+          }
+        };
+        keys.sort((a, b) => getAt(a) - getAt(b));
+        while (keys.length > 60) localStorage.removeItem(keys.shift() as string);
+      }
+    } catch {
+      /* private mode / penyimpanan penuh — abaikan */
+    }
+  }
+
+  function loadAI(cam: string) {
+    try {
+      const raw = localStorage.getItem(LS_PREFIX + cam);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async function runAI() {
+    if (!btnAI || !aiCam) return;
+    if (btnAI.dataset.loading) return;
+    btnAI.dataset.loading = '1';
+    btnAI.classList.add('pointer-events-none', 'opacity-70');
+    const original = btnAI.innerHTML;
+    btnAI.innerHTML =
+      '<span class="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white"></span> Menganalisis... ±30 detik';
+    aiBox(
+      '<div class="flex items-center gap-3 rounded-lg border border-ink5/60 bg-ink2 px-3 py-2.5 text-xs text-dim">' +
+        '<span class="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-ink5 border-t-brand"></span>' +
+        'Sistem kecerdasan buatan sedang menangkap 30 detik video & menghitung kendaraan...' +
+        '</div>'
+    );
+    try {
+      const res = await fetch(`${AI_BASE}/api/analyze?cam=${encodeURIComponent(aiCam)}`);
+      const data = await res.json();
+      if (!res.ok)      throw new Error(data?.error || 'Layanan analisis error');
+      renderAI(data);
+      saveAI(aiCam, data);
+    } catch (e: any) {
+      let msg = e.message || '';
+      if (msg.includes('fetch')) {
+        msg = 'layanan analisis belum aktif — jalankan <b>node server/index.mjs</b>';
+      } else if (/429|kuota|quota|rate.?.limit/i.test(msg)) {
+        msg =
+          'kuota layanan kecerdasan buatan (gratis) sedang habis — tunggu sebentar, lalu klik <b>Analisa Sekarang</b> lagi.';
+      }
+      aiBox(
+        '<div class="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2.5 text-xs text-red-600 dark:text-red-400">' +
+          'Gagal menganalisis: ' +
+          msg +
+          '</div>'
+      );
+    } finally {
+      btnAI.innerHTML = original;
+      btnAI.classList.remove('pointer-events-none', 'opacity-70');
+      delete btnAI.dataset.loading;
+    }
+  }
+
+  btnAI?.addEventListener('click', runAI);
+
+  // Tampilkan hasil analisis saat halaman dibuka: (1) dari localStorage langsung (instan),
+  // (2) refresh dari server hanya jika ada data yang lebih baru.
+  (async () => {
+    if (!aiCam) return;
+    const local = loadAI(aiCam);
+    if (local && local.at) renderAI({ ...local, _lokal: true });
+    try {
+      const res = await fetch(`${AI_BASE}/api/latest?cam=${encodeURIComponent(aiCam)}`);
+      const data = await res.json();
+      if (res.ok && data && !data.belumAda && (data.at || 0) > (local?.at || 0)) {
+        renderAI(data);
+        saveAI(aiCam, data);
+      }
+    } catch {}
+  })();
+</script>

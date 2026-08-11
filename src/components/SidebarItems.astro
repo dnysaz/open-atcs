@@ -1,0 +1,86 @@
+---
+import Icon from './Icon.astro';
+import { categories, categoryIcon, offlineCount, onlineCount } from '../lib/cameras';
+
+const cats = categories();
+const live = onlineCount();
+const off = offlineCount();
+const current = Astro.url.pathname + Astro.url.search;
+
+function isActive(href: string): boolean {
+  if (href === '/') return current === '/';
+  return current === href;
+}
+---
+
+<nav class="px-2 pb-4">
+  <a href="/" data-nav class={`sb-link ${isActive('/') ? 'active' : ''}`}>
+    <Icon name="home" class="h-6 w-6 shrink-0" />
+    <span class="sb-label">Beranda</span>
+  </a>
+  <a href="/?s=live" data-nav class={`sb-link ${isActive('/?s=live') ? 'active' : ''}`}>
+    <Icon name="broadcast" class="h-6 w-6 shrink-0" />
+    <span class="sb-label flex-1">Live CCTV</span>
+    <span class="sb-count text-xs text-dim">{live}</span>
+  </a>
+  <a href="/peta" data-nav class={`sb-link ${isActive('/peta') ? 'active' : ''}`}>
+    <Icon name="map" class="h-6 w-6 shrink-0 text-emerald-500" />
+    <span class="sb-label">Peta Lokasi</span>
+  </a>
+
+  <div class="mx-3 my-3 border-t border-ink5/60"></div>
+  <p class="sb-label px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-dim">Kategori</p>
+
+  {cats.map((c) => (
+    <a href={`/?k=${encodeURIComponent(c.name)}`} data-nav class={`sb-link ${isActive(`/?k=${encodeURIComponent(c.name)}`) ? 'active' : ''}`}>
+      <Icon name={categoryIcon(c.name)} class="h-6 w-6 shrink-0" />
+      <span class="sb-label flex-1">{c.name}</span>
+      <span class="sb-count text-xs text-dim">{c.count}</span>
+    </a>
+  ))}
+
+  <div class="mx-3 my-3 border-t border-ink5/60"></div>
+  <a href="/?s=offline" data-nav class={`sb-link ${isActive('/?s=offline') ? 'active' : ''}`}>
+    <Icon name="warning" class="h-6 w-6 shrink-0 text-yellow-500" />
+    <span class="sb-label flex-1">Kamera Offline</span>
+    <span class="sb-count text-xs text-dim">{off}</span>
+  </a>
+
+  <div class="mx-3 my-3 border-t border-ink5/60"></div>
+  <!-- Toggle tema terang/gelap -->
+  <button type="button" data-theme-toggle class="sb-link w-full" aria-label="Ganti tema terang/gelap">
+    <Icon name="sun" class="theme-ico-sun hidden h-6 w-6 shrink-0" />
+    <Icon name="moon" class="theme-ico-moon h-6 w-6 shrink-0" />
+    <span class="theme-label sb-label flex-1">Mode Gelap</span>
+  </button>
+</nav>
+
+<script>
+  // ---------- Toggle tema terang/gelap (default: terang) ----------
+  const themeBtns = Array.from(document.querySelectorAll<HTMLElement>('[data-theme-toggle]'));
+  const themeRoot = document.documentElement;
+
+  function applyTheme(theme: string) {
+    themeRoot.setAttribute('data-theme', theme);
+    const dark = theme === 'dark';
+    themeBtns.forEach((b) => {
+      b.querySelector('.theme-ico-sun')?.classList.toggle('hidden', !dark);
+      b.querySelector('.theme-ico-moon')?.classList.toggle('hidden', dark);
+      const lbl = b.querySelector('.theme-label');
+      if (lbl) lbl.textContent = dark ? 'Mode Terang' : 'Mode Gelap';
+    });
+    try {
+      localStorage.setItem('atcs-theme', theme);
+    } catch {}
+  }
+
+  let theme = themeRoot.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+  applyTheme(theme);
+
+  themeBtns.forEach((b) =>
+    b.addEventListener('click', () => {
+      theme = theme === 'dark' ? 'light' : 'dark';
+      applyTheme(theme);
+    })
+  );
+</script>

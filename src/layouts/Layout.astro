@@ -1,0 +1,188 @@
+---
+import '../styles/global.css';
+import Navbar from '../components/Navbar.astro';
+import Sidebar from '../components/Sidebar.astro';
+import MobileNav from '../components/MobileNav.astro';
+
+interface Props {
+  title?: string;
+  description?: string;
+  page?: 'home' | 'watch';
+}
+
+const {
+  title = 'ATCS TV — Live CCTV Kota Denpasar',
+  description = 'Pantau kamera CCTV lalu lintas Kota Denpasar secara real-time, mirip YouTube.',
+  page = 'home',
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <script is:inline>
+      // Tandai JS aktif sebelum CSS render (untuk sistem skeleton)
+      document.documentElement.classList.add('js');
+      // Tema: default TERANG. Terapkan sebelum halaman dirender agar tidak ada flash.
+      try {
+        if (localStorage.getItem('atcs-theme') === 'dark') {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      } catch (e) {}
+    </script>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#ff0000" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icons/icon-180.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="ATCS TV" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body data-page={page} class="min-h-screen bg-ink font-sans text-snow antialiased">
+    <Navbar />
+    <Sidebar />
+    <main id="main-wrap" class="pb-20 pt-14 lg:pb-10">
+      <slot />
+    </main>
+    <MobileNav />
+    <footer id="tentang" class="border-t border-ink5/60 px-4 py-6 text-center text-xs text-dim">
+      <p>
+        <span class="font-semibold text-snow">ATCS TV</span> — Live Streaming CCTV ATCS Kota Denpasar.
+        Sumber resmi:{' '}
+        <a href="https://atcs.denpasarkota.go.id" target="_blank" rel="noreferrer" class="text-sky-500 hover:text-sky-400">
+          atcs.denpasarkota.go.id
+        </a>{' '}
+        · Dinas Perhubungan Kota Denpasar
+      </p>
+    </footer>
+
+    <script>
+      // ---------- Shell: hamburger, drawer, mobile search, global search ----------
+      const btnMenu = document.getElementById('btn-menu');
+      const drawer = document.getElementById('drawer');
+
+      btnMenu?.addEventListener('click', () => {
+        if (window.innerWidth >= 1024) {
+          const collapsed = document.body.classList.toggle('sb-collapsed');
+          try {
+            localStorage.setItem('atcs-sb', collapsed ? '1' : '0');
+          } catch {}
+        } else {
+          drawer?.classList.add('open');
+          document.body.classList.add('overflow-hidden');
+        }
+      });
+
+      ['drawer-backdrop', 'drawer-close'].forEach((id) => {
+        document.getElementById(id)?.addEventListener('click', () => {
+          drawer?.classList.remove('open');
+          document.body.classList.remove('overflow-hidden');
+        });
+      });
+
+      try {
+        if (localStorage.getItem('atcs-sb') === '1' && window.innerWidth >= 1024) {
+          document.body.classList.add('sb-collapsed');
+        }
+      } catch {}
+
+      // Pencarian mobile: toggle baris input
+      const btnSearchMobile = document.getElementById('btn-search-mobile');
+      const searchMobile = document.getElementById('search-mobile');
+      btnSearchMobile?.addEventListener('click', () => {
+        searchMobile?.classList.toggle('hidden');
+        const input = searchMobile?.querySelector<HTMLInputElement>('.js-search-input');
+        if (!searchMobile?.classList.contains('hidden')) input?.focus();
+        else if (input) input.value = '';
+      });
+
+      // Submit pencarian: filter instan di halaman home (pushState ditangani index.astro),
+      // atau navigasi ke beranda dengan query di halaman lain
+      function applySearch(q: string) {
+        const w = window as any;
+        if (typeof w.__atcsFilter === 'function') {
+          w.__atcsFilter({ q });
+        } else {
+          const url = new URL(location.origin + '/');
+          if (q) url.searchParams.set('q', q);
+          location.assign(url);
+        }
+      }
+
+      document.querySelectorAll<HTMLFormElement>('.js-search-form').forEach((form) => {
+        form.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const q = new FormData(form).get('q')?.toString().trim() || '';
+          applySearch(q);
+        });
+      });
+
+      // Tombol aksi bottom-nav mobile
+      document.querySelectorAll<HTMLElement>('[data-action="search"]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          if (document.body.dataset.page === 'home') {
+            searchMobile?.classList.remove('hidden');
+            searchMobile?.querySelector<HTMLInputElement>('input')?.focus();
+          } else {
+            location.assign('/');
+          }
+        });
+      });
+      document.querySelectorAll<HTMLElement>('[data-action="menu"]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          drawer?.classList.add('open');
+          document.body.classList.add('overflow-hidden');
+        });
+      });
+
+      // Saat ukuran layar berubah ke desktop, tutup drawer
+      window.addEventListener('resize', () => {
+        if (window.innerWidth >= 1024) {
+          drawer?.classList.remove('open');
+          document.body.classList.remove('overflow-hidden');
+        }
+      });
+
+      // ---------- Skeleton loading: reveal konten setelah halaman dimuat ----------
+      const skStart = Date.now();
+      let skDone = false;
+      function revealSkeletons() {
+        if (skDone) return;
+        skDone = true;
+        const wait = Math.max(0, 600 - (Date.now() - skStart));
+        window.setTimeout(() => {
+          document.querySelectorAll<HTMLElement>('[data-reveal]').forEach((el) => {
+            el.classList.add('revealed');
+          });
+          document.querySelectorAll<HTMLElement>('[data-skeleton]').forEach((el) => {
+            el.classList.add('sk-hide');
+            window.setTimeout(() => el.remove(), 450);
+          });
+        }, wait);
+      }
+      if (document.readyState === 'complete') revealSkeletons();
+      else window.addEventListener('load', revealSkeletons);
+      window.setTimeout(revealSkeletons, 2500); // fallback aman
+
+      // ---------- PWA: daftarkan service worker (hanya build produksi) ----------
+      if ('serviceWorker' in navigator && import.meta.env.PROD) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+      }
+    </script>
+  </body>
+</html>

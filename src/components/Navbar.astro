@@ -1,0 +1,69 @@
+---
+import Icon from './Icon.astro';
+import { onlineCount } from '../lib/cameras';
+
+const live = onlineCount();
+---
+
+<header class="fixed inset-x-0 top-0 z-50 h-14 border-b border-ink5/60 bg-ink/95 backdrop-blur">
+  <div class="flex h-full items-center gap-1 px-2 sm:gap-3 sm:px-4">
+    <!-- Kiri: menu + logo -->
+    <button id="btn-menu" class="grid h-10 w-10 shrink-0 place-items-center rounded-full hover:bg-ink4" aria-label="Menu">
+      <Icon name="menu" class="h-6 w-6" />
+    </button>
+    <a href="/" class="flex shrink-0 items-center gap-2" aria-label="ATCS TV - Beranda">
+      <span class="grid h-8 w-8 place-items-center rounded-lg bg-brand">
+        <Icon name="play" class="ml-0.5 h-5 w-5 text-white" />
+      </span>
+      <span class="hidden text-lg font-bold tracking-tight sm:block">
+        ATCS<span class="text-dim">TV</span>
+      </span>
+    </a>
+
+    <!-- Pencarian (desktop) -->
+    <form class="js-search-form hidden w-full max-w-xl flex-1 items-center justify-center md:flex" role="search">
+      <input
+        name="q"
+        type="search"
+        placeholder="Cari kamera, lokasi..."
+        class="js-search-input h-10 w-full rounded-l-full border border-ink5 bg-ink2 px-4 text-sm outline-none transition-colors focus:border-sky-600"
+      />
+      <button type="submit" class="grid h-10 w-16 shrink-0 place-items-center rounded-r-full border border-l-0 border-ink5 bg-ink3 hover:bg-ink4" aria-label="Cari">
+        <Icon name="search" class="h-5 w-5" />
+      </button>
+    </form>
+
+    <!-- Kanan -->
+    <div class="ml-auto flex items-center gap-1 sm:gap-2">
+      <button id="btn-search-mobile" class="grid h-10 w-10 place-items-center rounded-full hover:bg-ink4 md:hidden" aria-label="Cari">
+        <Icon name="search" class="h-5 w-5" />
+      </button>
+      <a
+        href="/?s=live"
+        data-nav
+        class="hidden items-center gap-2 rounded-full bg-brand/10 px-3 py-1.5 text-sm font-semibold text-brand2 transition-colors hover:bg-brand/20 sm:flex"
+      >
+        <span class="h-2 w-2 animate-pulse rounded-full bg-brand"></span>
+        {live} LIVE
+      </a>
+      <a href="/?s=live" data-nav class="grid h-10 w-10 place-items-center rounded-full hover:bg-ink4 sm:hidden" aria-label="Live">
+        <Icon name="broadcast" class="h-5 w-5 text-brand2" />
+      </a>
+    </div>
+  </div>
+
+  <!-- Pencarian (mobile, toggle) -->
+  <div id="search-mobile" class="hidden border-t border-ink5/60 bg-ink px-3 pb-3 pt-2 md:hidden">
+    <form class="js-search-form flex w-full" role="search">
+      <input
+        name="q"
+        type="search"
+        placeholder="Cari kamera, lokasi..."
+        class="js-search-input h-10 w-full rounded-l-full border border-ink5 bg-ink2 px-4 text-sm outline-none focus:border-sky-600"
+      />
+      <button type="submit" class="grid h-10 w-14 shrink-0 place-items-center rounded-r-full border border-l-0 border-ink5 bg-ink3 hover:bg-ink4" aria-label="Cari">
+        <Icon name="search" class="h-5 w-5" />
+      </button>
+    </form>
+  </div>
+</header>

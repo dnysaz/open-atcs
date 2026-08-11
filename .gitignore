@@ -1,0 +1,20 @@
+# --- Dependencies & build ---
+node_modules/
+dist/
+.astro/
+
+# --- Env & secrets (JANGAN commit!) ---
+server/.env
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# --- Logs & temp ---
+*.log
+npm-debug.log*
+.DS_Store
+
+# --- Editor ---
+.vscode/
+.idea/

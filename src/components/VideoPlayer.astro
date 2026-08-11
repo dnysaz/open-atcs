@@ -1,0 +1,350 @@
+---
+import Icon from './Icon.astro';
+import { cameraByCam, hashHue, typeLabel } from '../lib/cameras';
+
+interface Props {
+  cam: string;
+}
+
+const camera = cameraByCam(Astro.props.cam);
+const offline = camera?.status === 'offline';
+// Saat dev: lewati proxy lokal (/stream) agar bisa menembus sertifikat SSL server
+// yang kadaluarsa. Saat build produksi: pakai URL asli (berfungsi lagi setelah
+// sertifikat diperbarui, atau jika dipasang di belakang proxy server sendiri).
+const streamUrl = camera
+  ? import.meta.env.DEV
+    ? `/stream/${camera.cam}/stream.m3u8`
+    : camera.url
+  : '';
+const hue = camera ? hashHue(camera.cam) : 0;
+const gradient = camera
+  ? `background:linear-gradient(135deg,hsl(${hue} 45% 22%),hsl(${(hue + 45) % 360} 45% 12%))`
+  : 'background:#000';
+// Poster = thumbnail hasil capture + overlay gelap (fallback gradient jika thumbnail tidak ada)
+const posterStyle = camera
+  ? `background-image:linear-gradient(rgba(0,0,0,.45),rgba(0,0,0,.45)),url('/thumbs/${camera.cam}.jpg');background-size:cover;background-position:center`
+  : gradient;
+---
+
+{camera && (
+  <div
+    id="player"
+    data-url={streamUrl}
+    data-offline={offline ? '1' : '0'}
+    class="group/player relative aspect-video w-full select-none overflow-hidden rounded-xl bg-black"
+  >
+    <video id="pv" class="absolute inset-0 h-full w-full" playsinline muted preload="auto" aria-label={camera.namaAlias} poster={`/thumbs/${camera.cam}.jpg`}></video>
+
+    <!-- Poster / loading -->
+    <div id="pposter" class="absolute inset-0 flex flex-col items-center justify-center gap-4" style={posterStyle}>
+      <span class="h-12 w-12 animate-spin rounded-full border-4 border-white/20 border-t-white"></span>
+      <p class="text-sm text-white/70">Memuat stream kamera...</p>
+    </div>
+
+    <!-- Error -->
+    <div id="perr" class="absolute inset-0 z-30 hidden flex-col items-center justify-center gap-3 bg-ink/95 p-6 text-center">
+      <Icon name="warning" class="h-12 w-12 text-yellow-500" />
+      <p class="font-semibold">Kamera tidak dapat diakses</p>
+      <p class="max-w-sm text-sm text-dim">Stream sedang dipelihara atau kamera sedang offline.</p>
+      <button
+        id="pretry"
+        class="mt-2 flex items-center gap-2 rounded-full bg-snow px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-white/90"
+      >
+        <Icon name="retry" class="h-4 w-4" />
+        Coba Lagi
+      </button>
+    </div>
+
+    <!-- Tombol play besar -->
+    <button
+      id="bigplay"
+      class="absolute inset-0 z-20 m-auto hidden h-16 w-16 place-items-center rounded-full border border-white/20 bg-white/10 backdrop-blur transition-colors hover:bg-white/20"
+      aria-label="Putar"
+    >
+      <Icon name="play" class="ml-1 h-8 w-8 text-white" />
+    </button>
+
+    <!-- Badge atas -->
+    <div class="absolute left-3 top-3 z-20 flex items-center gap-2">
+      {!offline ? (
+        <span class="live-pill">
+          <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-white"></span>
+          LIVE
+        </span>
+      ) : (
+        <span class="flex items-center gap-1 rounded bg-black/70 px-2 py-0.5 text-[11px] font-bold text-yellow-500">
+          <Icon name="warning" class="h-3 w-3" />
+          OFFLINE
+        </span>
+      )}
+      <span class="rounded bg-black/60 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-white/90">
+        {typeLabel(camera)}
+      </span>
+    </div>
+
+    <!-- Kontrol bawah -->
+    <div
+      id="pcontrols"
+      class="absolute inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black/85 via-black/40 to-transparent px-3 pb-2 pt-10 opacity-0 transition-opacity duration-200 group-hover/player:opacity-100"
+    >
+      <div class="flex items-center gap-1 text-white">
+        <button id="toggle" class="grid h-9 w-9 place-items-center rounded-full transition-colors hover:bg-white/15" aria-label="Putar/Jeda">
+          <Icon name="pause" id="ico-pause" class="h-5 w-5 text-white" />
+          <Icon name="play" id="ico-play" class="ml-0.5 hidden h-5 w-5 text-white" />
+        </button>
+        <button id="mute" class="grid h-9 w-9 place-items-center rounded-full transition-colors hover:bg-white/15" aria-label="Bisukan">
+          <Icon name="vol" id="ico-vol" class="h-5 w-5 text-white" />
+          <Icon name="mute" id="ico-mute" class="hidden h-5 w-5 text-white" />
+        </button>
+        <input id="vol" type="range" min="0" max="100" value="100" class="vol w-16 sm:w-24" aria-label="Volume" />
+        {!offline && (
+          <span class="ml-2 flex items-center gap-1.5 text-xs font-semibold">
+            <span class="h-2 w-2 animate-pulse rounded-full bg-brand"></span>
+            LIVE
+          </span>
+        )}
+        <span class="ml-2 hidden max-w-[40%] truncate text-[11px] text-white/70 sm:block">
+          {camera.namaAlias}
+        </span>
+        <span class="ml-auto flex items-center">
+          <button id="pip" class="grid h-9 w-9 place-items-center rounded-full transition-colors hover:bg-white/15" aria-label="Picture in picture">
+            <Icon name="pip" class="h-5 w-5 text-white" />
+          </button>
+          <button id="fs" class="grid h-9 w-9 place-items-center rounded-full transition-colors hover:bg-white/15" aria-label="Layar penuh">
+            <Icon name="expand" id="ico-expand" class="h-5 w-5 text-white" />
+            <Icon name="collapse" id="ico-collapse" class="hidden h-5 w-5 text-white" />
+          </button>
+        </span>
+      </div>
+    </div>
+  </div>
+)}
+
+<script>
+  import Hls from 'hls.js';
+
+  const root = document.getElementById('player') as HTMLElement | null;
+  const video = document.getElementById('pv') as HTMLVideoElement | null;
+  if (!root || !video) throw new Error('player elements missing');
+
+  const url = root.dataset.url || '';
+  const poster = document.getElementById('pposter') as HTMLElement | null;
+  const errorBox = document.getElementById('perr') as HTMLElement | null;
+  const bigPlay = document.getElementById('bigplay') as HTMLButtonElement | null;
+  const controls = document.getElementById('pcontrols') as HTMLElement | null;
+  const toggleBtn = document.getElementById('toggle') as HTMLButtonElement | null;
+  const icoPlay = document.getElementById('ico-play') as HTMLElement | null;
+  const icoPause = document.getElementById('ico-pause') as HTMLElement | null;
+  const muteBtn = document.getElementById('mute') as HTMLButtonElement | null;
+  const icoVol = document.getElementById('ico-vol') as HTMLElement | null;
+  const icoMute = document.getElementById('ico-mute') as HTMLElement | null;
+  const volInput = document.getElementById('vol') as HTMLInputElement | null;
+  const fsBtn = document.getElementById('fs') as HTMLButtonElement | null;
+  const icoExpand = document.getElementById('ico-expand') as HTMLElement | null;
+  const icoCollapse = document.getElementById('ico-collapse') as HTMLElement | null;
+  const pipBtn = document.getElementById('pip') as HTMLButtonElement | null;
+  const retryBtn = document.getElementById('pretry') as HTMLButtonElement | null;
+
+  let hls: Hls | null = null;
+  let playing = false;
+  let retries = 0;
+  let idleTimer: number | undefined;
+  let mediaAttempts = 0;
+
+  function showControls(show: boolean) {
+    if (!controls) return;
+    controls.classList.toggle('opacity-0', !show);
+    controls.classList.toggle('opacity-100', show);
+  }
+
+  function resetIdleTimer() {
+    window.clearTimeout(idleTimer);
+    if (playing) {
+      showControls(true);
+      idleTimer = window.setTimeout(() => showControls(false), 2600);
+    }
+  }
+
+  function setPlaying(p: boolean) {
+    playing = p;
+    icoPlay?.classList.toggle('hidden', p);
+    icoPause?.classList.toggle('hidden', !p);
+    bigPlay?.classList.toggle('hidden', p);
+    resetIdleTimer();
+  }
+
+  function showError() {
+    poster?.classList.add('hidden');
+    errorBox?.classList.remove('hidden');
+    errorBox?.classList.add('flex');
+    setPlaying(false);
+  }
+
+  function hideError() {
+    errorBox?.classList.add('hidden');
+    errorBox?.classList.remove('flex');
+  }
+
+  function initPlayer() {
+    hideError();
+    poster?.classList.remove('hidden');
+    retries = 0;
+    mediaAttempts = 0;
+    if (hls) {
+      hls.destroy();
+      hls = null;
+    }
+
+    if (Hls.isSupported()) {
+      hls = new Hls({
+        enableWorker: true,
+        backBufferLength: 30,
+        maxBufferLength: 15,
+        maxLiveSyncDurationCount: 3,
+      });
+      hls.loadSource(url);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.ERROR, (_evt, data) => {
+        if (!data.fatal) return;
+        switch (data.type) {
+          case Hls.ErrorTypes.NETWORK_ERROR:
+            retries++;
+            if (retries < 3) {
+              hls?.startLoad();
+            } else {
+              showError();
+            }
+            break;
+          case Hls.ErrorTypes.MEDIA_ERROR:
+            if (mediaAttempts < 2) {
+              mediaAttempts++;
+              hls?.recoverMediaError();
+            } else {
+              showError();
+            }
+            break;
+          default:
+            showError();
+        }
+      });
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = url;
+    } else {
+      showError();
+      return;
+    }
+
+    video.play().catch(() => {
+      /* autoplay diblokir — tampilkan tombol play */
+      setPlaying(false);
+    });
+  }
+
+  // ---- Event video ----
+  video.addEventListener('playing', () => {
+    poster?.classList.add('hidden');
+    setPlaying(true);
+  });
+  video.addEventListener('waiting', () => {
+    poster?.classList.remove('hidden');
+  });
+  video.addEventListener('pause', () => setPlaying(false));
+  video.addEventListener('play', () => setPlaying(true));
+
+  // ---- Kontrol ----
+  function togglePlay() {
+    if (video.paused) video.play().catch(() => {});
+    else video.pause();
+  }
+
+  toggleBtn?.addEventListener('click', togglePlay);
+  bigPlay?.addEventListener('click', togglePlay);
+  // Ketuk video untuk toggle play/pause (perilaku ala YouTube, penting di mobile)
+  video.addEventListener('click', togglePlay);
+
+  muteBtn?.addEventListener('click', () => {
+    video.muted = !video.muted;
+    syncVolumeUI();
+  });
+
+  function syncVolumeUI() {
+    const muted = video.muted || video.volume === 0;
+    icoVol?.classList.toggle('hidden', muted);
+    icoMute?.classList.toggle('hidden', !muted);
+    if (volInput) volInput.value = String(Math.round(video.volume * 100));
+  }
+
+  volInput?.addEventListener('input', () => {
+    const v = Number(volInput.value) / 100;
+    video.volume = v;
+    video.muted = v === 0;
+    syncVolumeUI();
+  });
+
+  fsBtn?.addEventListener('click', () => {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    else root.requestFullscreen().catch(() => {});
+  });
+
+  document.addEventListener('fullscreenchange', () => {
+    const fs = !!document.fullscreenElement;
+    icoExpand?.classList.toggle('hidden', fs);
+    icoCollapse?.classList.toggle('hidden', !fs);
+  });
+
+  pipBtn?.addEventListener('click', async () => {
+    try {
+      if (document.pictureInPictureElement) await document.exitPictureInPicture();
+      else await video.requestPictureInPicture();
+    } catch {}
+  });
+
+  retryBtn?.addEventListener('click', initPlayer);
+
+  // ---- Tampilkan kontrol saat mouse bergerak ----
+  root.addEventListener('mousemove', resetIdleTimer);
+  root.addEventListener('touchstart', resetIdleTimer);
+
+  // ---- Keyboard shortcut ----
+  window.addEventListener('keydown', (e) => {
+    const tag = (e.target as HTMLElement)?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    switch (e.key.toLowerCase()) {
+      case ' ':
+        e.preventDefault();
+        if (video.paused) video.play().catch(() => {});
+        else video.pause();
+        break;
+      case 'm':
+        video.muted = !video.muted;
+        syncVolumeUI();
+        break;
+      case 'f':
+        fsBtn?.click();
+        break;
+      case 'arrowup':
+        e.preventDefault();
+        video.volume = Math.min(1, video.volume + 0.1);
+        syncVolumeUI();
+        break;
+      case 'arrowdown':
+        e.preventDefault();
+        video.volume = Math.max(0, video.volume - 0.1);
+        syncVolumeUI();
+        break;
+    }
+  });
+
+  syncVolumeUI();
+  setPlaying(false);
+
+  // Kamera offline → langsung tampilkan error
+  const isOffline = root.dataset.offline === '1';
+  if (isOffline) {
+    showError();
+    const msg = errorBox?.querySelector('p') as HTMLElement | null;
+    if (msg) msg.textContent = 'Kamera sedang offline / dalam pemeliharaan.';
+  } else {
+    initPlayer();
+  }
+</script>

@@ -1,0 +1,280 @@
+@import "tailwindcss";
+
+/* Variant dark: ikuti toggle tema kita (data-theme di <html>),
+   bukan prefers-color-scheme bawaan browser */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+@theme {
+  --color-ink: #0f0f0f;
+  --color-ink2: #161616;
+  --color-ink3: #1f1f1f;
+  --color-ink4: #272727;
+  --color-ink5: #3f3f3f;
+  --color-snow: #f1f1f1;
+  --color-dim: #aaaaaa;
+  --color-brand: #ff0000;
+  --color-brand2: #ff4444;
+  --font-sans: "Roboto", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* ============ TEMA TERANG (default) ============ */
+:root {
+  --color-ink: #f4f4f4; /* latar utama */
+  --color-ink2: #ffffff; /* kartu */
+  --color-ink3: #e8e8e8; /* chip / elemen lembut */
+  --color-ink4: #dcdcdc; /* hover */
+  --color-ink5: #c7c7c7; /* border */
+  --color-snow: #1b1b1b; /* teks utama */
+  --color-dim: #5c5c5c; /* teks sekunder */
+  --color-brand: #cc0000; /* merah (YouTube-style) */
+  --color-brand2: #e60000;
+  color-scheme: light;
+}
+
+/* ============ TEMA GELAP ============ */
+html[data-theme='dark'] {
+  --color-ink: #0f0f0f;
+  --color-ink2: #161616;
+  --color-ink3: #1f1f1f;
+  --color-ink4: #272727;
+  --color-ink5: #3f3f3f;
+  --color-snow: #f1f1f1;
+  --color-dim: #aaaaaa;
+  --color-brand: #ff0000;
+  --color-brand2: #ff4444;
+  color-scheme: dark;
+}
+
+html {
+  scroll-behavior: smooth;
+  /* Cegah double-tap zoom & gesture zoom bawaan di layar sentuh */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  @apply bg-ink text-snow;
+}
+
+/* ---------- mobile: cegah auto-zoom saat fokus input (iOS) ----------
+   iOS memperbesar halaman saat meng-focus input dengan ukuran font < 16px.
+   Dengan memaksa 16px di layar kecil, zoom otomatis tidak terjadi. */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Ruang aman bawah untuk home-indicator iPhone (butuh viewport-fit=cover) */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ---------- scrollbar ---------- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-ink5) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-ink5);
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-ink4);
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ---------- chips (filter pills) ---------- */
+.chip {
+  @apply inline-flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg bg-ink3 px-3 py-1.5 text-sm text-snow transition-colors hover:bg-ink4;
+}
+.chip .count {
+  @apply text-[11px] text-dim;
+}
+.chip-active {
+  @apply bg-snow font-medium text-ink hover:bg-snow;
+}
+.chip-active .count {
+  @apply text-ink/60;
+}
+
+/* ---------- sidebar ---------- */
+#sidebar {
+  transition: width 0.2s ease;
+}
+.sb-link {
+  @apply flex items-center gap-4 rounded-xl px-3 py-2.5 text-sm font-medium text-snow transition-colors hover:bg-ink4;
+}
+.sb-link.active {
+  @apply bg-ink3;
+}
+@media (min-width: 1024px) {
+  #main-wrap {
+    padding-left: 15rem;
+    transition: padding 0.2s ease;
+  }
+  body.sb-collapsed #main-wrap {
+    padding-left: 4.5rem;
+  }
+  body.sb-collapsed #sidebar {
+    width: 4.5rem;
+  }
+  body.sb-collapsed #sidebar .sb-label,
+  body.sb-collapsed #sidebar .sb-count {
+    display: none;
+  }
+  body.sb-collapsed #sidebar .sb-link {
+    justify-content: center;
+  }
+  body.sb-collapsed #sidebar .sb-link svg {
+    margin: 0 auto;
+  }
+}
+
+/* ---------- mobile drawer ---------- */
+#drawer-panel {
+  /* pointer-events diwariskan (inherited) dari #drawer yang pointer-events-none.
+     Tanpa ini, SEMUA item di dalam drawer tidak bisa disentuh di layar sentuh. */
+  pointer-events: auto;
+  transition: transform 0.25s ease;
+}
+#drawer-backdrop {
+  transition: opacity 0.25s ease;
+}
+#drawer.open #drawer-panel {
+  /* Tailwind v4 menerapkan -translate-x-full lewat properti CSS `translate`,
+     bukan `transform`. Keduanya harus di-reset agar panel benar-benar masuk layar. */
+  transform: translateX(0);
+  translate: 0 0;
+}
+#drawer.open #drawer-backdrop {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ---------- live pill ---------- */
+.live-pill {
+  @apply inline-flex items-center gap-1.5 rounded bg-brand px-2 py-0.5 text-[11px] font-bold tracking-wide text-white;
+}
+
+/* ---------- volume slider ---------- */
+input[type="range"].vol {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.35);
+  outline: none;
+  cursor: pointer;
+}
+input[type="range"].vol::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  cursor: pointer;
+}
+input[type="range"].vol::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: none;
+  border-radius: 50%;
+  background: #fff;
+  cursor: pointer;
+}
+
+/* ---------- diagram batang & probabilitas (Analisa AI) ---------- */
+@keyframes ai-prob-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+.ai-prob-fill {
+  transform-origin: left;
+  animation: ai-prob-fill 0.8s ease both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-prob-fill {
+    animation: none;
+  }
+}
+
+/* ---------- misc ---------- */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ---------- skeleton loading & reveal ---------- */
+/* Tanpa JS: konten langsung terlihat. Dengan JS: skeleton tampil, konten menunggu reveal. */
+[data-skeleton] {
+  display: none;
+}
+.js [data-skeleton] {
+  display: block;
+}
+.js [data-reveal] {
+  opacity: 0;
+}
+.js [data-reveal].revealed {
+  opacity: 1;
+  transition: opacity 0.4s ease;
+}
+.sk-hide {
+  opacity: 0 !important;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .js [data-reveal].revealed {
+    transition: none;
+  }
+  .sk-hide {
+    transition: none;
+  }
+}
+
+/* ---------- lazy rendering ---------- */
+/* Skip layout/paint untuk kartu di luar layar; gambar dimuat via loading="lazy" */
+.lazy-card {
+  content-visibility: auto;
+  contain-intrinsic-size: 420px;
+}
+.lazy-card.lazy-card-sm {
+  contain-intrinsic-size: 120px 90px;
+}
+
+/* Fade-in halus saat kartu pertama kali dirender */
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.lazy-card {
+  animation: card-in 0.35s ease both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .lazy-card {
+    animation: none;
+  }
+}

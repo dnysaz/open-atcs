@@ -1,0 +1,232 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Icon from '../components/Icon.astro';
+import { cameras, onlineCount, offlineCount } from '../lib/cameras';
+
+const live = onlineCount();
+const off = offlineCount();
+const total = cameras.length;
+
+// Semua kamera yang punya koordinat. Diserialisasi ke JSON dan dibaca script
+// via elemen <script type="application/json"> (define:vars tak mendukung import).
+const points = cameras
+  .filter((c) => c.lat != null && c.lon != null)
+  .map((c) => ({
+    cam: c.cam,
+    nama: c.namaAlias,
+    lokasi: c.namaLokasi,
+    kategori: c.kategori,
+    ket: c.ketLokasi,
+    lat: c.lat,
+    lon: c.lon,
+    status: c.status,
+  }));
+const pointsJson = JSON.stringify(points).replace(/</g, '\\u003c'); // aman dari </script>
+---
+
+<Layout
+  page="home"
+  title="Peta Lokasi CCTV — ATCS TV Denpasar"
+  description="Lihat semua kamera CCTV Kota Denpasar di peta interaktif, lengkap dengan tautan ke tiap kamera."
+>
+  <div class="sticky top-14 z-20 border-b border-ink5/50 bg-ink/95 backdrop-blur">
+    <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 lg:px-6">
+      <div class="min-w-0">
+        <h1 class="flex items-center gap-2 text-base font-bold">
+          <Icon name="map" class="h-5 w-5 text-brand" />
+          Peta Lokasi CCTV
+        </h1>
+        <p class="mt-0.5 text-xs text-dim">
+          Kota Denpasar — {total} kamera ({live} live · {off} offline). Klik penanda untuk membuka kamera.
+        </p>
+      </div>
+      <div class="flex items-center gap-3 text-[11px] text-dim">
+        <span class="flex items-center gap-1.5">
+          <span class="inline-block h-2.5 w-2.5 rounded-full bg-brand"></span>
+          Live
+        </span>
+        <span class="flex items-center gap-1.5">
+          <span class="inline-block h-2.5 w-2.5 rounded-full bg-[#71717a]"></span>
+          Offline
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <div class="px-4 py-4 lg:px-6 lg:py-5">
+    <div class="relative">
+      <!-- Skeleton saat halaman dibuka -->
+      <div data-skeleton class="pointer-events-none absolute inset-0 z-10">
+        <div
+          class="flex h-[72vh] w-full animate-pulse items-center justify-center rounded-xl border border-ink5/60 bg-ink3 text-sm text-dim"
+        >
+          Memuat peta…
+        </div>
+      </div>
+
+      <div data-reveal>
+        <div
+          id="all-map"
+          class="relative z-0 h-[72vh] w-full overflow-hidden rounded-xl border border-ink5/60"
+          aria-label="Peta lokasi seluruh kamera CCTV Kota Denpasar"
+          role="application"
+        ></div>
+        <p class="mt-2 text-[11px] text-dim">
+          Peta: OpenStreetMap © kontributor & CARTO · geser untuk menjelajah · zoom dengan +/− · klik penanda
+          untuk detail kamera
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Data kamera untuk peta (dibaca script module di bawah) -->
+  <script type="application/json" id="map-data" set:html={pointsJson}></script>
+</Layout>
+
+<style is:global>
+  /* Warna cluster mengikuti tema (merah brand / transparan) */
+  .marker-cluster-small,
+  .marker-cluster-medium,
+  .marker-cluster-large {
+    background-color: color-mix(in srgb, var(--color-brand) 26%, transparent);
+  }
+  .marker-cluster-small div,
+  .marker-cluster-medium div,
+  .marker-cluster-large div {
+    background-color: var(--color-brand);
+    color: #fff;
+    font-weight: 700;
+  }
+  /* Penanda kamera: merah saat live, abu saat offline */
+  .mp-pin {
+    position: relative;
+    color: var(--color-brand);
+    filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.45));
+  }
+  .mp-pin.off {
+    color: #71717a;
+    opacity: 0.85;
+  }
+  .mp-pin svg {
+    display: block;
+  }
+  /* Popup */
+  .mp-popup-title {
+    margin: 0;
+    font-weight: 700;
+    font-size: 13px;
+  }
+  .mp-popup-meta {
+    margin: 2px 0 6px;
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--color-dim);
+  }
+  .mp-popup-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-brand2);
+    text-decoration: none;
+  }
+  .mp-popup-link:hover {
+    text-decoration: underline;
+  }
+</style>
+
+<script>
+  import L from 'leaflet';
+  import 'leaflet.markercluster';
+  import 'leaflet/dist/leaflet.css';
+  import 'leaflet.markercluster/dist/MarkerCluster.css';
+  import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
+
+  const el = document.getElementById('all-map');
+  if (el) {
+    let points: any[] = [];
+    try {
+      const data = document.getElementById('map-data');
+      points = data ? JSON.parse(data.textContent || '[]') : [];
+    } catch {
+      points = [];
+    }
+    const isDark = () => document.documentElement.getAttribute('data-theme') === 'dark';
+    const tileUrl = (dark: boolean) =>
+      dark
+        ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+        : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+
+    const map = L.map(el, {
+      center: [-8.6585, 115.2165],
+      zoom: 13,
+      minZoom: 11,
+      maxZoom: 19,
+      scrollWheelZoom: false,
+      attributionControl: true,
+    });
+
+    let tileLayer: any = null;
+    tileLayer = L.tileLayer(tileUrl(isDark()), {
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: 'abcd',
+      maxZoom: 19,
+    }).addTo(map);
+
+    // Ganti tile peta saat tema berubah (pola sama seperti CameraMap)
+    new MutationObserver(() => {
+      if (tileLayer) tileLayer.setUrl(tileUrl(isDark()));
+    }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+    // Amankan teks dari data agar tidak merusak HTML popup
+    const esc = (s: any) =>
+      String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
+
+    const cluster = L.markerClusterGroup({
+      showCoverageOnHover: false,
+      maxClusterRadius: 42,
+      chunkedLoading: true,
+    });
+
+    const pinIcon = (offline: boolean) =>
+      L.divIcon({
+        className: 'mp-divicon',
+        html:
+          '<div class="mp-pin' +
+          (offline ? ' off' : '') +
+          '">' +
+          '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+          '<path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/>' +
+          '<circle cx="12" cy="10" r="3"/>' +
+          '</svg></div>',
+        iconSize: [30, 30],
+        iconAnchor: [15, 28],
+        popupAnchor: [0, -28],
+      });
+
+    points.forEach((p: any) => {
+      const m = L.marker([p.lat, p.lon], { icon: pinIcon(p.status === 'offline'), title: p.nama });
+      m.bindPopup(
+        '<div style="min-width:190px">' +
+          `<p class="mp-popup-title">${esc(p.nama)}</p>` +
+          `<p class="mp-popup-meta">${esc(p.kategori)} · ${p.status === 'ok' ? '<b>LIVE</b>' : 'Offline'}<br>` +
+          `${esc(p.lokasi)}${p.ket ? ' — ' + esc(p.ket) : ''}<br>${Number(p.lat).toFixed(5)}, ${Number(p.lon).toFixed(5)}</p>` +
+          `<a class="mp-popup-link" href="/watch/${esc(p.cam)}">▶ Lihat CCTV</a>` +
+          '</div>'
+      );
+      cluster.addLayer(m);
+    });
+
+    map.addLayer(cluster);
+    // Hitung batas dari data langsung (bukan cluster) — aman dari race chunkedLoading
+    const bounds = L.latLngBounds(points.map((p: any) => [p.lat, p.lon]));
+    map.fitBounds(bounds.pad(0.12), { maxZoom: 14 });
+
+    // Ukur ulang peta setelah halaman terlihat (skeleton/reveal)
+    window.addEventListener('load', () => window.setTimeout(() => map.invalidateSize(), 150));
+    window.setTimeout(() => map.invalidateSize(), 900);
+    window.addEventListener('resize', () => map.invalidateSize());
+  }
+</script>

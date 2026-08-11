@@ -1,0 +1,26 @@
+{
+  "name": "atcs-view",
+  "type": "module",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ATCS TV - Pemantau CCTV lalu lintas Kota Denpasar (gaya YouTube)",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "astro": "^5.7.0",
+    "chart.js": "^4.5.1",
+    "hls.js": "^1.6.0",
+    "jspdf": "^4.2.1",
+    "leaflet": "^1.9.4",
+    "leaflet.markercluster": "^1.5.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.0",
+    "tailwindcss": "^4.1.0",
+    "typescript": "^5.8.0"
+  }
+}

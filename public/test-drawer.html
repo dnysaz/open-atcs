@@ -1,0 +1,83 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  body { background: #222; color: #eee; font-family: monospace; font-size: 13px; }
+  pre { white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<pre id="out">menunggu...</pre>
+<iframe id="f" style="width:375px;height:720px;border:1px solid #555"></iframe>
+<script>
+const out = document.getElementById('out');
+const log = (m) => { out.textContent += m + '\n'; };
+const f = document.getElementById('f');
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const doc = () => f.contentDocument;
+const win = () => f.contentWindow;
+
+f.addEventListener('load', () => {
+  const w = f.contentWindow;
+  w.__errs = w.__errs || [];
+  w.onerror = (msg, src, line) => {
+    w.__errs.push(msg + ' @' + line + ' (' + (src || '').split('/').pop() + ')');
+  };
+});
+
+(async () => {
+  f.src = 'http://127.0.0.1:4321/';
+  await sleep(3500);
+
+  log('=== error console saat load: ' + ((win().__errs || []).join(' | ') || 'TIDAK ADA') + ' ===');
+
+  const d = doc();
+  const drawer = d.getElementById('drawer');
+  const panel = d.getElementById('drawer-panel');
+  const btnMenu = d.getElementById('btn-menu');
+  const mBtn = d.querySelector('[data-action="menu"]');
+
+  log('btn-menu ada: ' + !!btnMenu + ' | btn menu-bawah ada: ' + !!mBtn + ' | drawer ada: ' + !!drawer);
+
+  // 1. Klik hamburger atas
+  btnMenu?.click();
+  await sleep(700);
+  log('--- setelah klik hamburger ---');
+  log('drawer.open: ' + (drawer ? drawer.classList.contains('open') : '?'));
+  if (panel) {
+    log('panel transform: ' + win().getComputedStyle(panel).transform);
+    log('link di drawer: ' + panel.querySelectorAll('a[data-nav]').length);
+    log('item kategori di drawer: ' + panel.querySelectorAll('.sb-link').length);
+    log('tombol tema di drawer: ' + panel.querySelectorAll('[data-theme-toggle]').length);
+    log('drawer terlihat? panel width: ' + Math.round(panel.getBoundingClientRect().width));
+  }
+
+  // 2. Tutup lewat close
+  d.getElementById('drawer-close')?.click();
+  await sleep(500);
+  log('setelah tutup, drawer.open: ' + (drawer ? drawer.classList.contains('open') : '?'));
+
+  // 3. Klik menu bawah (kotak 4)
+  mBtn?.click();
+  await sleep(700);
+  log('--- setelah klik menu bawah (kotak 4) ---');
+  log('drawer.open: ' + (drawer ? drawer.classList.contains('open') : '?'));
+
+  // 4. Klik kategori di drawer → filter beranda
+  if (drawer && drawer.classList.contains('open')) {
+    const firstCat = panel?.querySelector('a[data-nav][href*="k="]');
+    log('kategori pertama di drawer: ' + (firstCat ? firstCat.getAttribute('href') : 'TIDAK ADA'));
+    firstCat?.click();
+    await sleep(700);
+    log('setelah klik kategori: heading = "' + (d.getElementById('result-heading')?.textContent || '?') + '"');
+    log('count = "' + (d.getElementById('result-count')?.textContent || '?') + '"');
+    log('kartu tampil: ' + Array.from(d.querySelectorAll('[data-cam-card]')).filter((c) => !c.classList.contains('hidden')).length);
+  }
+
+  log('=== error console setelah interaksi: ' + ((win().__errs || []).join(' | ') || 'TIDAK ADA') + ' ===');
+  log('=== SELESAI ===');
+})();
+</script>
+</body>
+</html>
