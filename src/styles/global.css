@@ -140,20 +140,22 @@ body {
 }
 
 /* ---------- mobile drawer ---------- */
+/* PENTING: sembunyikan/munculkan panel murni lewat properti `transform`.
+   Jangan pakai `translate` (properti terpisah) atau utility Tailwind
+   `-translate-x-full` — bundler CSS Tailwind v4 membuang override `translate: 0 0`,
+   sehingga panel tidak pernah masuk layar (bug: layar menggelap tapi menu tidak muncul). */
 #drawer-panel {
   /* pointer-events diwariskan (inherited) dari #drawer yang pointer-events-none.
      Tanpa ini, SEMUA item di dalam drawer tidak bisa disentuh di layar sentuh. */
   pointer-events: auto;
+  transform: translateX(-100%);
   transition: transform 0.25s ease;
 }
 #drawer-backdrop {
   transition: opacity 0.25s ease;
 }
 #drawer.open #drawer-panel {
-  /* Tailwind v4 menerapkan -translate-x-full lewat properti CSS `translate`,
-     bukan `transform`. Keduanya harus di-reset agar panel benar-benar masuk layar. */
   transform: translateX(0);
-  translate: 0 0;
 }
 #drawer.open #drawer-backdrop {
   opacity: 1;
