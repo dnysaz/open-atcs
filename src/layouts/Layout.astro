@@ -54,7 +54,7 @@ const {
   <body data-page={page} class="min-h-screen bg-ink font-sans text-snow antialiased">
     <Navbar />
     <Sidebar />
-    <main id="main-wrap" class="pb-20 pt-14 lg:pb-10">
+    <main id="main-wrap" class="pb-20 pt-[calc(3.5rem+env(safe-area-inset-top,0px))] lg:pb-10">
       <slot />
     </main>
     <MobileNav />
@@ -74,6 +74,15 @@ const {
       const btnMenu = document.getElementById('btn-menu');
       const drawer = document.getElementById('drawer');
 
+      function openDrawer() {
+        drawer?.classList.add('open');
+        document.body.classList.add('overflow-hidden');
+      }
+      function closeDrawer() {
+        drawer?.classList.remove('open');
+        document.body.classList.remove('overflow-hidden');
+      }
+
       btnMenu?.addEventListener('click', () => {
         if (window.innerWidth >= 1024) {
           const collapsed = document.body.classList.toggle('sb-collapsed');
@@ -81,16 +90,19 @@ const {
             localStorage.setItem('atcs-sb', collapsed ? '1' : '0');
           } catch {}
         } else {
-          drawer?.classList.add('open');
-          document.body.classList.add('overflow-hidden');
+          openDrawer();
         }
       });
 
       ['drawer-backdrop', 'drawer-close'].forEach((id) => {
-        document.getElementById(id)?.addEventListener('click', () => {
-          drawer?.classList.remove('open');
-          document.body.classList.remove('overflow-hidden');
-        });
+        document.getElementById(id)?.addEventListener('click', closeDrawer);
+      });
+
+      // Event delegation (aman walau DOM dirender ulang / PWA cache):
+      // semua elemen [data-action="menu"] di mana pun (bottom nav, dll) membuka drawer.
+      document.addEventListener('click', (e) => {
+        const t = e.target as HTMLElement;
+        if (t.closest?.('[data-action="menu"]')) openDrawer();
       });
 
       try {
@@ -141,19 +153,9 @@ const {
           }
         });
       });
-      document.querySelectorAll<HTMLElement>('[data-action="menu"]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          drawer?.classList.add('open');
-          document.body.classList.add('overflow-hidden');
-        });
-      });
-
       // Saat ukuran layar berubah ke desktop, tutup drawer
       window.addEventListener('resize', () => {
-        if (window.innerWidth >= 1024) {
-          drawer?.classList.remove('open');
-          document.body.classList.remove('overflow-hidden');
-        }
+        if (window.innerWidth >= 1024) closeDrawer();
       });
 
       // ---------- Skeleton loading: reveal konten setelah halaman dimuat ----------

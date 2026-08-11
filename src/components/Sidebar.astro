@@ -3,14 +3,14 @@ import SidebarItems from './SidebarItems.astro';
 ---
 
 <!-- Sidebar desktop (bisa collapse jadi ikon saja) -->
-<aside id="sidebar" class="fixed bottom-0 left-0 top-14 z-30 hidden w-60 overflow-y-auto bg-ink px-2 py-4 lg:block">
+<aside id="sidebar" class="fixed bottom-0 left-0 top-[calc(3.5rem+env(safe-area-inset-top,0px))] z-30 hidden w-60 overflow-y-auto bg-ink px-2 py-4 lg:block">
   <SidebarItems />
 </aside>
 
 <!-- Drawer mobile -->
 <div id="drawer" class="pointer-events-none fixed inset-0 z-[60] lg:hidden">
   <div id="drawer-backdrop" class="pointer-events-none absolute inset-0 bg-black/60 opacity-0"></div>
-  <div id="drawer-panel" class="absolute bottom-0 left-0 top-0 w-72 -translate-x-full overflow-y-auto bg-ink shadow-2xl">
+  <div id="drawer-panel" class="absolute bottom-0 left-0 top-[env(safe-area-inset-top,0px)] w-72 -translate-x-full overflow-y-auto bg-ink shadow-2xl">
     <div class="flex h-14 items-center justify-between border-b border-ink5/60 px-4">
       <a href="/" class="flex items-center gap-2">
         <span class="grid h-8 w-8 place-items-center rounded-lg bg-brand">

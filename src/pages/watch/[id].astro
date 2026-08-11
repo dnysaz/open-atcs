@@ -31,7 +31,7 @@ const coords = camera.lat != null && camera.lon != null ? `${camera.lat}, ${came
     <div class="lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-6 xl:gap-8">
       <!-- Kolom utama: sticky penuh (player + judul + deskripsi) di desktop,
            hanya kolom kanan yang bergerak saat scroll -->
-      <div class="relative min-w-0 lg:sticky lg:top-14 lg:z-10 lg:max-h-[calc(100vh-3.5rem)] lg:self-start lg:overflow-y-auto">
+      <div class="relative min-w-0 lg:sticky lg:top-[calc(3.5rem+env(safe-area-inset-top,0px))] lg:z-10 lg:max-h-[calc(100vh-3.5rem-env(safe-area-inset-top,0px))] lg:self-start lg:overflow-y-auto">
         <!-- Skeleton player + teks -->
         <div data-skeleton class="pointer-events-none absolute inset-0 z-20 space-y-6">
           <Skeleton kind="player" />

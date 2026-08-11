@@ -5,8 +5,9 @@ import { onlineCount } from '../lib/cameras';
 const live = onlineCount();
 ---
 
-<header class="fixed inset-x-0 top-0 z-50 h-14 border-b border-ink5/60 bg-ink/95 backdrop-blur">
-  <div class="flex h-full items-center gap-1 px-2 sm:gap-3 sm:px-4">
+<header class="fixed inset-x-0 top-0 z-50 border-b border-ink5/60 bg-ink/95 backdrop-blur pt-[env(safe-area-inset-top,0px)]">
+  <!-- h-14 di dalam + padding atas safe-area: di HP, status bar/notch tidak menutupi konten header -->
+  <div class="flex h-14 items-center gap-1 px-2 sm:gap-3 sm:px-4">
     <!-- Kiri: menu + logo -->
     <button id="btn-menu" class="grid h-10 w-10 shrink-0 place-items-center rounded-full hover:bg-ink4" aria-label="Menu">
       <Icon name="menu" class="h-6 w-6" />
