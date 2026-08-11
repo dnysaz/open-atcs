@@ -148,6 +148,7 @@ const posterStyle = camera
   let mediaAttempts = 0;
   let autoRetried = false;
   let warmed = false;
+  let initGen = 0; // penangkal race: pemanggilan initPlayer yang lebih baru membatalkan yang lama
 
   function showControls(show: boolean) {
     if (!controls) return;
@@ -184,6 +185,7 @@ const posterStyle = camera
   }
 
   async function initPlayer() {
+    const gen = ++initGen;
     hideError();
     poster?.classList.remove('hidden');
     retries = 0;
@@ -208,6 +210,8 @@ const posterStyle = camera
         /* gagal/abort → biarkan hls.js menangani sendiri */
       }
     }
+    // Pemanggilan initPlayer lain yang lebih baru muncul selama await → batalkan yang ini
+    if (gen !== initGen) return;
 
     if (Hls.isSupported()) {
       hls = new Hls({
