@@ -146,6 +146,8 @@ const posterStyle = camera
   let retries = 0;
   let idleTimer: number | undefined;
   let mediaAttempts = 0;
+  let autoRetried = false;
+  let warmed = false;
 
   function showControls(show: boolean) {
     if (!controls) return;
@@ -181,14 +183,30 @@ const posterStyle = camera
     errorBox?.classList.remove('flex');
   }
 
-  function initPlayer() {
+  async function initPlayer() {
     hideError();
     poster?.classList.remove('hidden');
     retries = 0;
     mediaAttempts = 0;
+    autoRetried = false;
     if (hls) {
       hls.destroy();
       hls = null;
+    }
+
+    // Warm-up: pukul proxy stream dulu supaya cold start fungsi serverless (Vercel)
+    // selesai SEBELUM hls.js meminta manifest. Tanpa ini, request pertama hls.js kena
+    // cold start (5–15 dtk) sehingga pemutar tampak "loading terus" sampai di-reload.
+    if (!warmed) {
+      warmed = true;
+      try {
+        const ctrl = new AbortController();
+        const t = window.setTimeout(() => ctrl.abort(), 12000);
+        await fetch(url, { cache: 'no-store', signal: ctrl.signal });
+        window.clearTimeout(t);
+      } catch {
+        /* gagal/abort → biarkan hls.js menangani sendiri */
+      }
     }
 
     if (Hls.isSupported()) {
@@ -204,9 +222,17 @@ const posterStyle = camera
         if (!data.fatal) return;
         switch (data.type) {
           case Hls.ErrorTypes.NETWORK_ERROR:
+            // Retry lebih tangguh dengan backoff eksponensial; jika tetap gagal,
+            // lakukan inisialisasi ulang penuh sekali (reconnect) sebelum menyerah.
             retries++;
-            if (retries < 3) {
-              hls?.startLoad();
+            if (retries < 6) {
+              const delay = Math.min(1000 * Math.pow(2, retries - 1), 8000);
+              window.setTimeout(() => hls?.startLoad(), delay);
+            } else if (!autoRetried) {
+              autoRetried = true;
+              window.setTimeout(() => {
+                if (!document.hidden) initPlayer();
+              }, 12000);
             } else {
               showError();
             }
@@ -222,6 +248,9 @@ const posterStyle = camera
           default:
             showError();
         }
+      });
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        video.play().catch(() => setPlaying(false));
       });
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = url;
@@ -246,6 +275,14 @@ const posterStyle = camera
   });
   video.addEventListener('pause', () => setPlaying(false));
   video.addEventListener('play', () => setPlaying(true));
+
+  // Kembali ke tab setelah sebelumnya gagal (cold start serverless) → coba lagi otomatis
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && root.dataset.offline !== '1') {
+      const errVisible = errorBox && !errorBox.classList.contains('hidden');
+      if (errVisible) initPlayer();
+    }
+  });
 
   // ---- Kontrol ----
   function togglePlay() {
