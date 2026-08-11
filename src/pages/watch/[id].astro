@@ -888,9 +888,13 @@ const coords = camera.lat != null && camera.lon != null ? `${camera.lat}, ${came
   // DUA MODE ANALISIS:
   // - Dev lokal (import.meta.env.DEV)  → GET /api/analyze?cam= (ffmpeg menangkap video 30 dtk).
   // - Produksi (Vercel)               → POST /api/analyze dengan frame yang ditangkap dari
-  //   player yang sedang berjalan (±6 dtk, muat di limit fungsi serverless 10 dtk).
+  //   player yang sedang berjalan. FRAME_COUNT dijaga 6 (agar Gemini selesai dalam limit
+  //   fungsi serverless Hobby ±10 dtk), sedangkan frame di-spacing ±1,7 dtk sehingga
+  //   periode pengamatan yang tercatat FRAME_SECONDS = 10 dtk (lebih lama dari 6 dtk).
   const IS_DEV = import.meta.env.DEV;
-  const FRAME_SECONDS = 6;
+  const FRAME_COUNT = 6;
+  const FRAME_SECONDS = 10;
+  const FRAME_INTERVAL_MS = Math.round((FRAME_SECONDS * 1000) / FRAME_COUNT); // ±1667ms
 
   // Tangkap deretan frame JPEG dari elemen video yang sedang berputar
   async function captureFrames(): Promise<string[]> {
@@ -930,7 +934,7 @@ const coords = camera.lat != null && camera.lon != null ? `${camera.lat}, ${came
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('canvas tidak didukung di browser ini');
     const frames: string[] = [];
-    for (let i = 0; i < FRAME_SECONDS; i++) {
+    for (let i = 0; i < FRAME_COUNT; i++) {
       try {
         ctx.drawImage(video, 0, 0, W, H);
         const b64 = canvas.toDataURL('image/jpeg', 0.6).split(',')[1] || '';
@@ -938,7 +942,7 @@ const coords = camera.lat != null && camera.lon != null ? `${camera.lat}, ${came
       } catch {
         /* skip frame gagal */
       }
-      if (i < FRAME_SECONDS - 1) await new Promise((r) => setTimeout(r, 1000));
+      if (i < FRAME_COUNT - 1) await new Promise((r) => setTimeout(r, FRAME_INTERVAL_MS));
     }
     if (frames.length < 2) throw new Error('gagal mengambil gambar dari kamera');
     return frames;
