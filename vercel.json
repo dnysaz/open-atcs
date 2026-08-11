@@ -1,0 +1,30 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "astro",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "rewrites": [
+    {
+      "source": "/stream/:path*",
+      "destination": "/api/stream?path=:path*"
+    }
+  ],
+  "functions": {
+    "api/analyze.mjs": {
+      "maxDuration": 10,
+      "memory": 1024
+    },
+    "api/stream.mjs": {
+      "maxDuration": 10,
+      "memory": 1024
+    },
+    "api/latest.mjs": {
+      "maxDuration": 10,
+      "memory": 1024
+    },
+    "api/health.mjs": {
+      "maxDuration": 10,
+      "memory": 1024
+    }
+  }
+}

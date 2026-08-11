@@ -8,14 +8,10 @@ interface Props {
 
 const camera = cameraByCam(Astro.props.cam);
 const offline = camera?.status === 'offline';
-// Saat dev: lewati proxy lokal (/stream) agar bisa menembus sertifikat SSL server
-// yang kadaluarsa. Saat build produksi: pakai URL asli (berfungsi lagi setelah
-// sertifikat diperbarui, atau jika dipasang di belakang proxy server sendiri).
-const streamUrl = camera
-  ? import.meta.env.DEV
-    ? `/stream/${camera.cam}/stream.m3u8`
-    : camera.url
-  : '';
+// Selalu lewat path same-origin /stream/: cam — baik di dev (proxy vite) maupun di
+// produksi (rewrite Vercel → fungsi serverless proxy). Browser tidak bisa fetch
+// langsung ke atcs.denpasarkota.go.id karena sertifikat SSL-nya kadaluarsa.
+const streamUrl = camera ? `/stream/${camera.cam}/stream.m3u8` : '';
 const hue = camera ? hashHue(camera.cam) : 0;
 const gradient = camera
   ? `background:linear-gradient(135deg,hsl(${hue} 45% 22%),hsl(${(hue + 45) % 360} 45% 12%))`

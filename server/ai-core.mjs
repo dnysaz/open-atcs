@@ -1,6 +1,12 @@
 /*
  * ATCS TV — Inti logika Analisis AI (dipakai bersama)
- * Dipakai oleh: server/index.mjs (server standalone) & vite-plugin-ai.mjs (dev server Astro)
+ * Dipakai oleh: server/index.mjs (server standalone), vite-plugin-ai.mjs (dev server Astro),
+ * dan fungsi serverless Vercel di api/ (mode frames).
+ *
+ * DUA MODE ANALISIS:
+ * 1. Video  (dev lokal / server standalone) — capture clip 30 dtk via ffmpeg, kirim utuh ke Gemini.
+ * 2. Frames (produksi Vercel / Hobby)       — browser mengirim rangkaian frame JPEG (tanpa ffmpeg),
+ *    karena fungsi serverless Vercel maks 10 detik & tanpa binary ffmpeg.
  */
 import { execFile } from 'node:child_process';
 import fs from 'node:fs';
@@ -30,7 +36,7 @@ const STREAM_BASE = 'https://atcs.denpasarkota.go.id/stream';
 const cache = new Map(); // cam -> { at, result }
 const busy = new Map(); // cam -> Promise (cegah duplikat bersamaan)
 
-// ---------- capture clip via ffmpeg ----------
+// ---------- capture clip via ffmpeg (mode video — dev lokal) ----------
 function captureClip(cam, url) {
   return new Promise((resolve, reject) => {
     const tmp = path.join(os.tmpdir(), `atcs-${cam}-${Date.now()}.mp4`);
@@ -55,71 +61,54 @@ function captureClip(cam, url) {
   });
 }
 
+// ---------- prompt bersama (video & frames) ----------
+const SYSTEM_PROMPT =
+  'Kamu adalah sistem analis lalu lintas berbantuan kecerdasan buatan yang teliti dan singkat.\n' +
+  'ATURAN KETAT (HARUS DIIKUTI):\n' +
+  '1. Output HANYA satu objek JSON yang valid — TANPA markdown, TANPA penjelasan, TANPA narasi ' +
+  'frame-by-frame, TANPA teks tambahan apa pun di luar JSON.\n' +
+  '2. Hitung kendaraan per jenis (mobil, motor, truk, bus, pickup, sepeda, pejalan kaki); ' +
+  'total = jumlah seluruh kendaraan.\n' +
+  '3. Jika pandangan terhalang, perkirakan jumlah yang wajar; jangan mengarang angka ekstrem.\n' +
+  '4. Tulis JSON dalam SATU BARIS (tanpa indentasi/baris baru) agar hemat token.\n' +
+  '5. Mulai langsung dari karakter { — TANPA teks pembuka apa pun (mis. jangan tulis "Berikut hasilnya:").\n' +
+  '6. kesimpulan, proyeksi, dan rekomendasi masing-masing TEPAT 1 kalimat pendek (kesimpulan maks 180 karakter; proyeksi & rekomendasi maks 150 karakter).\n' +
+  'Format JSON (persis, semua kunci wajib):\n' +
+  '{"mobil":0,"motor":0,"truk":0,"bus":0,"pickup":0,"sepeda":0,"pejalan_kaki":0,"total":0,' +
+  '"kepadatan":"rendah","kecepatanRata":30,"keyakinan":85,' +
+  '"kesimpulan":"kesimpulan formal/akademik dalam Bahasa Indonesia, 1-2 kalimat, TANPA kata AI",' +
+  '"prediksi":{"tren":"stabil","probNaik":50,"probMacet":20,' +
+  '"proyeksi":"prediksi singkat 30 menit","rekomendasi":"saran singkat untuk pengendara"}}.\n' +
+  'Aturan nilai: kepadatan "rendah" jika sedikit kendaraan, "sedang", "tinggi", atau "macet" ' +
+  'jika padat/berhenti. kecepatanRata: 0-80 km/jam. keyakinan: 0-100. ' +
+  'prediksi.tren: "naik"/"stabil"/"turun". probNaik: probabilitas (0-100) volume lalu lintas ' +
+  'meningkat dalam 30 menit. probMacet: probabilitas (0-100) terjadi kemacetan/antrean panjang dalam 30 menit. ' +
+  'kesimpulan harus berbahasa Indonesia ragam akademik, diawali "Berdasarkan observasi...".';
+
 // Panggil Gemini dengan retry TUNGGAL saat gagal yang bisa dipulihkan: kuota habis (429)
 // atau respons terpotong oleh batas token (MAX_TOKENS). Setiap retry = 1 request kuota,
 // jadi total dibatasi 2 percobaan.
-async function askGeminiWithRetry(clipPath) {
+// maxWaitMs: di Vercel (Hobby, batas 10 dtk) jeda retry harus kecil supaya fungsi
+// tidak mati sebelum percobaan kedua; di dev lokal boleh menunggu lebih lama.
+async function askGeminiWithRetry(fn, maxWaitMs = 35000) {
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      return await askGemini(clipPath);
+      return await fn();
     } catch (e) {
       const retryable = e?.status === 429 || e?.truncated;
       if (!retryable) throw e;
       if (attempt === 1) throw e; // 2 percobaan cukup; biarkan error tampil
-      const waitMs = Math.min(35000, Math.max(5000, (e.retryAfter || 10) * 1000));
+      const waitMs = Math.min(maxWaitMs, Math.max(2500, (e.retryAfter || 5) * 1000));
       await new Promise((r) => setTimeout(r, waitMs));
     }
   }
 }
 
-// ---------- panggil Gemini ----------
-async function askGemini(clipPath) {
-  const b64 = fs.readFileSync(clipPath).toString('base64');
+// ---------- panggil Gemini dengan parts siap kirim (video utuh ATAU deretan frame) ----------
+async function askGemini(parts, durasiDetik) {
   const body = {
-    // Aturan & skema JSON dipisah ke systemInstruction (peran system),
-    // user prompt hanya berisi perintah singkat — model lebih patuh pada struktur ini.
-    systemInstruction: {
-      role: 'system',
-      parts: [
-        {
-          text:
-            'Kamu adalah sistem analis lalu lintas berbantuan kecerdasan buatan yang teliti dan singkat.\n' +
-            'ATURAN KETAT (HARUS DIIKUTI):\n' +
-            '1. Output HANYA satu objek JSON yang valid — TANPA markdown, TANPA penjelasan, TANPA narasi ' +
-            'frame-by-frame, TANPA teks tambahan apa pun di luar JSON.\n' +
-            '2. Hitung kendaraan per jenis (mobil, motor, truk, bus, pickup, sepeda, pejalan kaki); ' +
-            'total = jumlah seluruh kendaraan.\n' +
-            '3. Jika pandangan terhalang, perkirakan jumlah yang wajar; jangan mengarang angka ekstrem.\n' +
-            '4. Tulis JSON dalam SATU BARIS (tanpa indentasi/baris baru) agar hemat token.\n' +
-            '5. Mulai langsung dari karakter { — TANPA teks pembuka apa pun (mis. jangan tulis "Berikut hasilnya:").\n' +
-            '6. kesimpulan, proyeksi, dan rekomendasi masing-masing TEPAT 1 kalimat pendek (kesimpulan maks 180 karakter; proyeksi & rekomendasi maks 150 karakter).\n' +
-            'Format JSON (persis, semua kunci wajib):\n' +
-            '{"mobil":0,"motor":0,"truk":0,"bus":0,"pickup":0,"sepeda":0,"pejalan_kaki":0,"total":0,' +
-            '"kepadatan":"rendah","kecepatanRata":30,"keyakinan":85,' +
-            '"kesimpulan":"kesimpulan formal/akademik dalam Bahasa Indonesia, 1-2 kalimat, TANPA kata AI",' +
-            '"prediksi":{"tren":"stabil","probNaik":50,"probMacet":20,' +
-            '"proyeksi":"prediksi singkat 30 menit","rekomendasi":"saran singkat untuk pengendara"}}.\n' +
-            'Aturan nilai: kepadatan "rendah" jika sedikit kendaraan, "sedang", "tinggi", atau "macet" ' +
-            'jika padat/berhenti. kecepatanRata: 0-80 km/jam. keyakinan: 0-100. ' +
-            'prediksi.tren: "naik"/"stabil"/"turun". probNaik: probabilitas (0-100) volume lalu lintas ' +
-            'meningkat dalam 30 menit. probMacet: probabilitas (0-100) terjadi kemacetan/antrean panjang dalam 30 menit. ' +
-            'kesimpulan harus berbahasa Indonesia ragam akademik, diawali "Berdasarkan observasi...".',
-        },
-      ],
-    },
-    contents: [
-      {
-        role: 'user',
-        parts: [
-          {
-            text:
-              'Tonton video CCTV ini selama durasinya. Hitung kendaraan per jenis yang lewat, lalu keluarkan ' +
-              'JSON sesuai format yang ditentukan di instruksi sistem.',
-          },
-          { inline_data: { mime_type: 'video/mp4', data: b64 } },
-        ],
-      },
-    ],
+    systemInstruction: { role: 'system', parts: [{ text: SYSTEM_PROMPT }] },
+    contents: [{ role: 'user', parts }],
     // maxOutputTokens = hard limit terhadap teks "bandel" (cegah runaway ribuan token),
     // tapi cukup lebar: JSON kita ±400-600 token; cap 2000 menoleransi model yang menulis
     // teks pembuka singkat tanpa membuat pengguna melihat error terpotong.
@@ -177,10 +166,11 @@ async function askGemini(clipPath) {
       throw makeErr(prefix + cleaned.slice(0, 200));
     }
   }
-  return normalize(parsed);
+  return normalize(parsed, durasiDetik);
 }
 
-function normalize(p) {
+function normalize(p, durasiDetik) {
+  const dur = Number(durasiDetik) || CAPTURE_SECONDS;
   const num = (v) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Math.round(Number(v)) : 0);
   const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, Number(v) || 0));
   const mobil = num(p.mobil);
@@ -198,7 +188,7 @@ function normalize(p) {
   const tren = ['naik', 'stabil', 'turun'].includes(String(pred.tren).toLowerCase())
     ? String(pred.tren).toLowerCase()
     : 'stabil';
-  const perMenit = (n) => Math.round((n * 60) / CAPTURE_SECONDS);
+  const perMenit = (n) => Math.round((n * 60) / dur);
   return {
     mobil, motor, truk, bus, pickup, sepeda, pejalanKaki,
     total,
@@ -206,7 +196,7 @@ function normalize(p) {
     kecepatanRata: Math.round(clamp(p.kecepatanRata, 0, 80)),
     keyakinan: Math.round(clamp(p.keyakinan, 0, 100)),
     kesimpulan: String(p.kesimpulan || p.deskripsi || '').slice(0, 400),
-    durasiDetik: CAPTURE_SECONDS,
+    durasiDetik: dur,
     perMenit: {
       mobil: perMenit(mobil),
       motor: perMenit(motor),
@@ -232,6 +222,7 @@ export function latest(cam) {
   return c ? { ...c.result, at: c.at } : null;
 }
 
+// ---------- MODE VIDEO: capture ffmpeg + kirim utuh (dev lokal / server standalone) ----------
 export async function analyze(cam) {
   if (busy.has(cam)) return busy.get(cam);
   const p = (async () => {
@@ -240,7 +231,20 @@ export async function analyze(cam) {
     const url = `${STREAM_BASE}/${cam}/stream.m3u8`;
     const clip = await captureClip(cam, url);
     try {
-      const result = await askGeminiWithRetry(clip);
+      const b64 = fs.readFileSync(clip).toString('base64');
+      const result = await askGeminiWithRetry(() =>
+        askGemini(
+          [
+            {
+              text:
+                'Tonton video CCTV ini selama durasinya. Hitung kendaraan per jenis yang lewat, lalu keluarkan ' +
+                'JSON sesuai format yang ditentukan di instruksi sistem.',
+            },
+            { inline_data: { mime_type: 'video/mp4', data: b64 } },
+          ],
+          CAPTURE_SECONDS
+        )
+      );
       const at = Date.now();
       cache.set(cam, { at, result });
       return { ...result, cache: false, at };
@@ -250,6 +254,24 @@ export async function analyze(cam) {
   })().finally(() => busy.delete(cam));
   busy.set(cam, p);
   return p;
+}
+
+// ---------- MODE FRAMES: kirim deretan gambar JPEG (produksi Vercel — tanpa ffmpeg) ----------
+// frames: array base64 (tanpa prefix data:). durasiDetik: lama pengamatan di browser.
+export async function analyzeFrames(cam, frames, durasiDetik) {
+  const dur = Number(durasiDetik) || frames.length || 6;
+  const parts = [
+    {
+      text:
+        `Ini adalah ${frames.length} gambar (frame) yang diambil kira-kira tiap 1 detik dari kamera CCTV ` +
+        'selama periode pengamatan. Amati rangkaian gambar ini, hitung kendaraan per jenis yang lewat, ' +
+        'lalu keluarkan JSON sesuai format yang ditentukan di instruksi sistem.',
+    },
+    ...frames.map((f) => ({ inline_data: { mime_type: 'image/jpeg', data: String(f) } })),
+  ];
+  // Jeda retry kecil: fungsi Vercel Hobby hanya punya 10 dtk anggaran.
+  const result = await askGeminiWithRetry(() => askGemini(parts, dur), 6000);
+  return { ...result, cache: false, at: Date.now(), durasiDetik: dur };
 }
 
 export function isValidCam(cam) {

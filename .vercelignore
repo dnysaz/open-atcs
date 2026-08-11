@@ -1,0 +1,4 @@
+# File yang tidak perlu di-upload ke Vercel (gitignore sudah menangani sebagian besar)
+server/.env
+scripts/
+*.md

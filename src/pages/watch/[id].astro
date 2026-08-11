@@ -885,33 +885,125 @@ const coords = camera.lat != null && camera.lon != null ? `${camera.lat}, ${came
     }
   }
 
+  // DUA MODE ANALISIS:
+  // - Dev lokal (import.meta.env.DEV)  → GET /api/analyze?cam= (ffmpeg menangkap video 30 dtk).
+  // - Produksi (Vercel)               → POST /api/analyze dengan frame yang ditangkap dari
+  //   player yang sedang berjalan (±6 dtk, muat di limit fungsi serverless 10 dtk).
+  const IS_DEV = import.meta.env.DEV;
+  const FRAME_SECONDS = 6;
+
+  // Tangkap deretan frame JPEG dari elemen video yang sedang berputar
+  async function captureFrames(): Promise<string[]> {
+    const video = document.getElementById('pv') as HTMLVideoElement | null;
+    if (!video) throw new Error('player video tidak ditemukan');
+    // Tunggu video benar-benar MEMUTAR (event playing), bukan sekadar punya data —
+    // supaya frame tidak statis/poster saat autoplay terblokir atau stream macet.
+    const sudahMaju = video.readyState >= 2 && video.videoWidth > 0 && !video.paused && video.currentTime > 0;
+    if (!sudahMaju) {
+      const playing = await new Promise<boolean>((resolve) => {
+        const t0 = Date.now();
+        const ok = () => resolve(true);
+        const fail = () => resolve(false);
+        video.addEventListener('playing', ok, { once: true });
+        video.addEventListener('error', fail, { once: true });
+        const timer = setInterval(() => {
+          if (video.currentTime > 0 && video.videoWidth > 0 && !video.paused) {
+            clearInterval(timer);
+            video.removeEventListener('playing', ok);
+            video.removeEventListener('error', fail);
+            resolve(true);
+          } else if (Date.now() - t0 > 8000) {
+            clearInterval(timer);
+            video.removeEventListener('playing', ok);
+            video.removeEventListener('error', fail);
+            resolve(false);
+          }
+        }, 250);
+      });
+      if (!playing) throw new Error('stream kamera belum aktif — pastikan video sedang diputar');
+    }
+    const W = 640;
+    const H = 360;
+    const canvas = document.createElement('canvas');
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('canvas tidak didukung di browser ini');
+    const frames: string[] = [];
+    for (let i = 0; i < FRAME_SECONDS; i++) {
+      try {
+        ctx.drawImage(video, 0, 0, W, H);
+        const b64 = canvas.toDataURL('image/jpeg', 0.6).split(',')[1] || '';
+        if (b64) frames.push(b64);
+      } catch {
+        /* skip frame gagal */
+      }
+      if (i < FRAME_SECONDS - 1) await new Promise((r) => setTimeout(r, 1000));
+    }
+    if (frames.length < 2) throw new Error('gagal mengambil gambar dari kamera');
+    return frames;
+  }
+
   async function runAI() {
     if (!btnAI || !aiCam) return;
     if (btnAI.dataset.loading) return;
     btnAI.dataset.loading = '1';
     btnAI.classList.add('pointer-events-none', 'opacity-70');
     const original = btnAI.innerHTML;
-    btnAI.innerHTML =
-      '<span class="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white"></span> Menganalisis... ±30 detik';
-    aiBox(
-      '<div class="flex items-center gap-3 rounded-lg border border-ink5/60 bg-ink2 px-3 py-2.5 text-xs text-dim">' +
-        '<span class="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-ink5 border-t-brand"></span>' +
-        'Sistem kecerdasan buatan sedang menangkap 30 detik video & menghitung kendaraan...' +
-        '</div>'
-    );
+    const spin =
+      '<span class="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white"></span>';
     try {
-      const res = await fetch(`${AI_BASE}/api/analyze?cam=${encodeURIComponent(aiCam)}`);
-      const data = await res.json();
-      if (!res.ok)      throw new Error(data?.error || 'Layanan analisis error');
-      renderAI(data);
-      saveAI(aiCam, data);
+      if (IS_DEV) {
+        btnAI.innerHTML = `${spin} Menganalisis... ±30 detik`;
+        aiBox(
+          '<div class="flex items-center gap-3 rounded-lg border border-ink5/60 bg-ink2 px-3 py-2.5 text-xs text-dim">' +
+            '<span class="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-ink5 border-t-brand"></span>' +
+            'Sistem kecerdasan buatan sedang menangkap 30 detik video & menghitung kendaraan...' +
+            '</div>'
+        );
+        const res = await fetch(`${AI_BASE}/api/analyze?cam=${encodeURIComponent(aiCam)}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || 'Layanan analisis error');
+        renderAI(data);
+        saveAI(aiCam, data);
+      } else {
+        // Produksi (Vercel): tangkap frame dari player, kirim ke fungsi serverless
+        btnAI.innerHTML = `${spin} Mengamati kamera... ±${FRAME_SECONDS} detik`;
+        aiBox(
+          '<div class="flex items-center gap-3 rounded-lg border border-ink5/60 bg-ink2 px-3 py-2.5 text-xs text-dim">' +
+            '<span class="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-ink5 border-t-brand"></span>' +
+            `Sistem kecerdasan buatan sedang mengamati kamera ${FRAME_SECONDS} detik & menghitung kendaraan...` +
+            '</div>'
+        );
+        const frames = await captureFrames();
+        btnAI.innerHTML = `${spin} Menghitung kendaraan...`;
+        aiBox(
+          '<div class="flex items-center gap-3 rounded-lg border border-ink5/60 bg-ink2 px-3 py-2.5 text-xs text-dim">' +
+            '<span class="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-ink5 border-t-brand"></span>' +
+            'Kecerdasan buatan sedang menganalisis gambar kamera...' +
+            '</div>'
+        );
+        const res = await fetch(`${AI_BASE}/api/analyze`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cam: aiCam, frames, durasiDetik: FRAME_SECONDS }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || 'Layanan analisis error');
+        renderAI(data);
+        saveAI(aiCam, data);
+      }
     } catch (e: any) {
       let msg = e.message || '';
       if (msg.includes('fetch')) {
-        msg = 'layanan analisis belum aktif — jalankan <b>node server/index.mjs</b>';
+        msg = IS_DEV
+          ? 'layanan analisis belum aktif — jalankan <b>node server/index.mjs</b>'
+          : 'layanan analisis tidak dapat dijangkau — coba beberapa saat lagi.';
       } else if (/429|kuota|quota|rate.?.limit/i.test(msg)) {
         msg =
           'kuota layanan kecerdasan buatan (gratis) sedang habis — tunggu sebentar, lalu klik <b>Analisa Sekarang</b> lagi.';
+      } else if (/stream kamera belum aktif/i.test(msg)) {
+        msg = 'stream kamera belum aktif — tunggu video mulai diputar, lalu coba lagi.';
       }
       aiBox(
         '<div class="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2.5 text-xs text-red-600 dark:text-red-400">' +
