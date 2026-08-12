@@ -29,7 +29,7 @@ if (qEff) headingParts.push(`"${qEff}"`);
 if (s === 'live') headingParts.push('Live');
 if (s === 'offline') headingParts.push('Offline');
 if (k !== 'all') headingParts.push(k);
-const heading = headingParts.length ? `Hasil untuk ${headingParts.join(' • ')}` : 'Semua Kamera CCTV';
+const heading = headingParts.length ? `Hasil untuk ${headingParts.join(' • ')}` : 'Semua Kamera CCTV di Denpasar';
 ---
 
 <Layout
@@ -206,7 +206,7 @@ const heading = headingParts.length ? `Hasil untuk ${headingParts.join(' • ')}
       if (state.s === 'live') parts.push('Live');
       if (state.s === 'offline') parts.push('Offline');
       if (state.k !== 'all') parts.push(state.k);
-      heading.textContent = parts.length ? `Hasil untuk ${parts.join(' • ')}` : 'Semua Kamera CCTV';
+      heading.textContent = parts.length ? `Hasil untuk ${parts.join(' • ')}` : 'Semua Kamera CCTV di Denpasar';
     }
     updateLoadMore();
   }

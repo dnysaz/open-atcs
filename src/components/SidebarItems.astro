@@ -25,14 +25,14 @@ function isActive(href: string): boolean {
     <span class="sb-label flex-1">CCTV Denpasar</span>
     <span class="sb-count text-xs text-dim">{live}</span>
   </a>
-  <a href="/peta" data-nav class={`sb-link ${isActive('/peta') ? 'active' : ''}`}>
-    <Icon name="map" class="h-6 w-6 shrink-0 text-emerald-500" />
-    <span class="sb-label">Peta Lokasi</span>
-  </a>
   <a href="/bali" data-nav class={`sb-link ${isActive('/bali') ? 'active' : ''}`}>
     <Icon name="tv" class="h-6 w-6 shrink-0 text-orange-500" />
     <span class="sb-label flex-1">CCTV Bali</span>
     <span class="sb-count text-xs text-dim">{baliCount}</span>
+  </a>
+  <a href="/peta" data-nav class={`sb-link ${isActive('/peta') ? 'active' : ''}`}>
+    <Icon name="map" class="h-6 w-6 shrink-0 text-emerald-500" />
+    <span class="sb-label">Peta Lokasi</span>
   </a>
 
   <div class="mx-3 my-3 border-t border-ink5/60"></div>
