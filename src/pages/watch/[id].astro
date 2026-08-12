@@ -992,7 +992,14 @@ const coords = camera.lat != null && camera.lon != null ? `${camera.lat}, ${came
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ cam: aiCam, frames, durasiDetik: FRAME_SECONDS }),
         });
-        const data = await res.json();
+        const raw = await res.text();
+        let data: any = {};
+        try {
+          data = JSON.parse(raw);
+        } catch {
+          // server Vercel kadang balas teks error (mis. "An error occurred with your deployment")
+          throw new Error(raw.slice(0, 200) || 'Response tidak valid dari server');
+        }
         if (!res.ok) throw new Error(data?.error || 'Layanan analisis error');
         renderAI(data);
         saveAI(aiCam, data);
