@@ -8,17 +8,22 @@ import { baliCameras, baliCategories, baliSearchText } from '../lib/cameras-bali
 const q = (Astro.url.searchParams.get('q') || '').trim().toLowerCase();
 const qEff = q.length >= 3 ? q : '';
 const k = Astro.url.searchParams.get('k') || 'all';
+const s = Astro.url.searchParams.get('s') || 'all';
 
 const cats = baliCategories();
+const wantStatus = s === 'live' ? 'ok' : s;
 
 const filtered = baliCameras.filter((c) => {
   const matchQ = !qEff || baliSearchText(c).includes(qEff);
   const matchK = k === 'all' || c.kategori === k;
-  return matchQ && matchK;
+  const matchS = s === 'all' || c.status === wantStatus;
+  return matchQ && matchK && matchS;
 });
 
 const headingParts: string[] = [];
 if (qEff) headingParts.push(`"${qEff}"`);
+if (s === 'live') headingParts.push('Live');
+if (s === 'offline') headingParts.push('Offline');
 if (k !== 'all') headingParts.push(k);
 const heading = headingParts.length ? `Hasil untuk ${headingParts.join(' • ')}` : 'Semua Kamera CCTV Bali';
 ---
@@ -95,13 +100,15 @@ const heading = headingParts.length ? `Hasil untuk ${headingParts.join(' • ')}
   interface FilterState {
     q: string;
     k: string;
+    s: string;
   }
 
-  const state: FilterState = { q: '', k: 'all' };
+  const state: FilterState = { q: '', k: 'all', s: 'all' };
 
   const params = new URLSearchParams(location.search);
   state.q = params.get('q')?.trim().toLowerCase() || '';
   state.k = params.get('k') || 'all';
+  state.s = params.get('s') || 'all';
 
   const cards = Array.from(document.querySelectorAll<HTMLElement>('[data-cam-card]'));
   const chips = Array.from(document.querySelectorAll<HTMLElement>('[data-chip]'));
@@ -160,10 +167,12 @@ const heading = headingParts.length ? `Hasil untuk ${headingParts.join(' • ')}
     let n = 0;
     const query = qEff();
     const batchMode = !filterActive();
+    const wantStatus = state.s === 'live' ? 'ok' : state.s;
     cards.forEach((card, idx) => {
       const hit = !query || (card.dataset.search || '').includes(query);
       const hitK = state.k === 'all' || card.dataset.kat === state.k;
-      const show = hit && hitK && (batchMode ? idx < visibleCount : true);
+      const hitS = state.s === 'all' || card.dataset.status === wantStatus;
+      const show = hit && hitK && hitS && (batchMode ? idx < visibleCount : true);
       card.classList.toggle('hidden', !show);
       if (show) n++;
     });
@@ -179,6 +188,8 @@ const heading = headingParts.length ? `Hasil untuk ${headingParts.join(' • ')}
     if (heading) {
       const parts: string[] = [];
       if (query) parts.push(`"${query}"`);
+      if (state.s === 'live') parts.push('Live');
+      if (state.s === 'offline') parts.push('Offline');
       if (state.k !== 'all') parts.push(state.k);
       heading.textContent = parts.length ? `Hasil untuk ${parts.join(' • ')}` : 'Semua Kamera CCTV Bali';
     }
@@ -192,6 +203,8 @@ const heading = headingParts.length ? `Hasil untuk ${headingParts.join(' • ')}
     else url.searchParams.delete('q');
     if (state.k === 'all') url.searchParams.delete('k');
     else url.searchParams.set('k', state.k);
+    if (state.s === 'all') url.searchParams.delete('s');
+    else url.searchParams.set('s', state.s);
     const method = replace ? 'replaceState' : 'pushState';
     history[method]({}, '', url.pathname + url.search);
   }
@@ -237,6 +250,7 @@ const heading = headingParts.length ? `Hasil untuk ${headingParts.join(' • ')}
     e.preventDefault();
     state.q = u.searchParams.get('q')?.trim().toLowerCase() || '';
     state.k = u.searchParams.get('k') || 'all';
+    state.s = u.searchParams.get('s') || 'all';
     history.pushState({}, '', u.pathname + u.search);
     apply();
     document.querySelectorAll<HTMLInputElement>('.js-search-input').forEach((inp) => {

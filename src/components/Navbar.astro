@@ -1,8 +1,10 @@
 ---
 import Icon from './Icon.astro';
 import { onlineCount } from '../lib/cameras';
+import { baliCameras } from '../lib/cameras-bali';
 
-const live = onlineCount();
+const live = onlineCount(); // Denpasar
+const baliLive = baliCameras.filter((c) => c.status === 'ok').length;
 ---
 
 <header class="fixed inset-x-0 top-0 z-50 border-b border-ink5/60 bg-ink/95 backdrop-blur pt-[env(safe-area-inset-top,0px)]">
@@ -42,10 +44,13 @@ const live = onlineCount();
       <a
         href="/?s=live"
         data-nav
+        data-live-dps={live}
+        data-live-bali={baliLive}
+        id="live-badge"
         class="hidden items-center gap-2 rounded-full bg-brand/10 px-3 py-1.5 text-sm font-semibold text-brand2 transition-colors hover:bg-brand/20 sm:flex"
       >
         <span class="h-2 w-2 animate-pulse rounded-full bg-brand"></span>
-        {live} LIVE
+        <span id="live-count">{live}</span> LIVE
       </a>
       <a href="/?s=live" data-nav class="grid h-10 w-10 place-items-center rounded-full hover:bg-ink4 sm:hidden" aria-label="Live">
         <Icon name="broadcast" class="h-5 w-5 text-brand2" />
@@ -68,3 +73,14 @@ const live = onlineCount();
     </form>
   </div>
 </header>
+
+<script>
+  // Badge LIVE dinamis: di halaman /bali* tampilkan jumlah Bali, selain itu Denpasar.
+  const liveCount = document.getElementById('live-count');
+  const liveBadge = document.getElementById('live-badge');
+  if (liveCount && liveBadge) {
+    const onBali = location.pathname.startsWith('/bali');
+    const n = onBali ? liveBadge.dataset.liveBali : liveBadge.dataset.liveDps;
+    liveCount.textContent = String(n ?? '');
+  }
+</script>

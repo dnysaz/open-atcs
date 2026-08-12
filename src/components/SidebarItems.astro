@@ -7,6 +7,7 @@ const cats = categories();
 const live = onlineCount();
 const off = offlineCount();
 const baliCount = baliCameras.length;
+const baliOff = baliCameras.filter((c) => c.status === 'offline').length;
 const current = Astro.url.pathname + Astro.url.search;
 
 function isActive(href: string): boolean {
@@ -47,11 +48,34 @@ function isActive(href: string): boolean {
   ))}
 
   <div class="mx-3 my-3 border-t border-ink5/60"></div>
-  <a href="/?s=offline" data-nav class={`sb-link ${isActive('/?s=offline') ? 'active' : ''}`}>
-    <Icon name="warning" class="h-6 w-6 shrink-0 text-yellow-500" />
-    <span class="sb-label flex-1">Kamera Offline</span>
-    <span class="sb-count text-xs text-dim">{off}</span>
-  </a>
+  <!-- Kamera Offline: klik untuk membuka 2 kartu (Denpasar / Bali) -->
+  <div>
+    <button type="button" data-offline-toggle class="sb-link w-full" aria-expanded="false" aria-controls="offline-panel">
+      <Icon name="warning" class="h-6 w-6 shrink-0 text-yellow-500" />
+      <span class="sb-label flex-1">Kamera Offline</span>
+      <Icon name="chevron-right" class="offline-chev h-4 w-4 shrink-0 text-dim transition-transform" />
+    </button>
+    <div id="offline-panel" class="hidden space-y-1.5 px-2 pt-1.5">
+      <a
+        href="/?s=offline"
+        data-nav
+        class={`sb-link rounded-lg bg-ink2 py-2 text-sm ${isActive('/?s=offline') ? 'active' : ''}`}
+      >
+        <Icon name="pin" class="h-4 w-4 shrink-0 text-brand" />
+        <span class="sb-label flex-1">Offline Denpasar</span>
+        <span class="sb-count text-xs font-semibold text-dim">{off}</span>
+      </a>
+      <a
+        href="/bali?s=offline"
+        data-nav
+        class={`sb-link rounded-lg bg-ink2 py-2 text-sm ${isActive('/bali?s=offline') ? 'active' : ''}`}
+      >
+        <Icon name="tv" class="h-4 w-4 shrink-0 text-orange-500" />
+        <span class="sb-label flex-1">Offline Bali</span>
+        <span class="sb-count text-xs font-semibold text-dim">{baliOff}</span>
+      </a>
+    </div>
+  </div>
 
   <div class="mx-3 my-3 border-t border-ink5/60"></div>
   <!-- Toggle tema terang/gelap -->
@@ -90,4 +114,27 @@ function isActive(href: string): boolean {
       applyTheme(theme);
     })
   );
+
+  // ---------- Kamera Offline: toggle 2 kartu (Denpasar / Bali) ----------
+  const offToggle = document.querySelector<HTMLElement>('[data-offline-toggle]');
+  const offPanel = document.getElementById('offline-panel');
+  const offChev = offToggle?.querySelector('.offline-chev');
+
+  function syncOfflineOpen() {
+    if (!offToggle || !offPanel || !offChev) return;
+    const open = !offPanel.classList.contains('hidden');
+    offToggle.setAttribute('aria-expanded', String(open));
+    offChev.style.transform = open ? 'rotate(90deg)' : '';
+  }
+
+  offToggle?.addEventListener('click', () => {
+    offPanel?.classList.toggle('hidden');
+    syncOfflineOpen();
+  });
+
+  // Buka panel jika sedang di halaman ?s=offline (agar menu terlihat aktif)
+  if (/\?s=offline/.test(location.search) && offPanel) {
+    offPanel.classList.remove('hidden');
+    syncOfflineOpen();
+  }
 </script>
