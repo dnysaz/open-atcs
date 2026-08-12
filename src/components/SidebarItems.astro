@@ -137,18 +137,22 @@ function isActive(href: string): boolean {
   }
 
   catsToggles.forEach((toggle) => {
-    const panel = document.getElementById(toggle.dataset.catsPanel || '');
+    // Panel = elemen tepat setelah tombol. JANGAN pakai getElementById karena
+    // SidebarItems dirender 2x (desktop + drawer mobile) sehingga ID duplikat dan
+    // getElementById hanya menjangkau panel versi desktop.
+    const panel = toggle.nextElementSibling as HTMLElement | null;
     if (!panel) return;
-    const saved = catsState()[toggle.dataset.catsPanel || ''];
+    const panelId = toggle.dataset.catsPanel || '';
+    const saved = catsState()[panelId];
     // Terapkan state simpanan (default Denpasar terbuka, Bali tertutup)
-    const open = saved !== undefined ? saved : catsDefaultOpen(toggle.dataset.catsPanel || '');
+    const open = saved !== undefined ? saved : catsDefaultOpen(panelId);
     panel.classList.toggle('hidden', !open);
     syncCats(toggle, open);
     toggle.addEventListener('click', () => {
       const nowOpen = panel.classList.toggle('hidden');
       syncCats(toggle, !nowOpen);
       const next = catsState();
-      next[toggle.dataset.catsPanel || ''] = !nowOpen;
+      next[panelId] = !nowOpen;
       try {
         localStorage.setItem(CATS_KEY, JSON.stringify(next));
       } catch {}
