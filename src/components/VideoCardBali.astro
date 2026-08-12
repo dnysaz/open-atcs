@@ -31,6 +31,20 @@ const isHevc = codecLabel === 'HEVC';
         <div class="absolute inset-0 grid place-items-center opacity-60">
           <Icon name="camera" class="h-10 w-10 text-white/50" />
         </div>
+        <img
+          src={`/thumbs-bali/${camera.cam}.jpg`}
+          alt={camera.namaAlias}
+          loading="lazy"
+          decoding="async"
+          class="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          onerror="(function(img){var p=img.parentElement;img.remove();var s=p&&p.querySelector('[data-thumb-missing]');if(s)s.classList.remove('hidden');})(this)"
+        />
+        <span
+          data-thumb-missing
+          class="absolute inset-0 z-[1] hidden grid place-items-center bg-black/40 px-2 text-center text-[11px] font-medium text-white/70"
+        >
+          Thumbnail tidak tersedia
+        </span>
         <div class="absolute left-2 top-2">
           {online ? (
             <span class="live-pill">
@@ -88,6 +102,20 @@ const isHevc = codecLabel === 'HEVC';
         <div class="absolute inset-0 grid place-items-center opacity-60">
           <Icon name="camera" class="h-8 w-8 text-white/50" />
         </div>
+        <img
+          src={`/thumbs-bali/${camera.cam}.jpg`}
+          alt={camera.namaAlias}
+          loading="lazy"
+          decoding="async"
+          class="absolute inset-0 h-full w-full object-cover"
+          onerror="(function(img){var p=img.parentElement;img.remove();var s=p&&p.querySelector('[data-thumb-missing]');if(s)s.classList.remove('hidden');})(this)"
+        />
+        <span
+          data-thumb-missing
+          class="absolute inset-0 z-[1] hidden grid place-items-center bg-black/40 px-1 text-center text-[10px] font-medium text-white/70"
+        >
+          Thumbnail tidak tersedia
+        </span>
         {online ? (
           <span class="live-pill absolute left-1.5 top-1.5">
             <span class="h-1 w-1 animate-pulse rounded-full bg-white"></span>
