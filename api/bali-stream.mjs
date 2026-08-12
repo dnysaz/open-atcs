@@ -35,13 +35,18 @@ export default function handler(req, res) {
   const qs = params.toString();
   const target = `${UPSTREAM}/${seg}${qs ? '?' + qs : ''}`;
 
+  const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
+  const headers = { 'User-Agent': UA };
+  if (req.headers.cookie) headers.Cookie = req.headers.cookie;
+  if (req.headers.referer) headers.Referer = req.headers.referer;
+
   const up = https.request(
     target,
     {
       method: 'GET',
       rejectUnauthorized: false,
       timeout: 20000,
-      headers: { 'User-Agent': 'ATCS-TV-Bali/1.0' },
+      headers,
     },
     (upRes) => {
       const ct = upRes.headers['content-type'] || 'application/octet-stream';
