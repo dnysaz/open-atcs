@@ -153,6 +153,9 @@ body {
   pointer-events: auto;
   transform: translateX(-100%);
   transition: transform 0.25s ease;
+  /* Cegah scroll "menyusup" dari dalam drawer ke halaman di belakangnya:
+     gestur scroll hanya memengaruhi konten drawer, bukan body/latar. */
+  overscroll-behavior: contain;
 }
 #drawer-backdrop {
   transition: opacity 0.25s ease;
