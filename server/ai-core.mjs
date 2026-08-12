@@ -119,9 +119,17 @@ async function askGemini(parts, durasiDetik) {
     `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${API_KEY}`,
     { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
   );
-  const json = await res.json();
+  // Baca text dulu — body error Google kadang bukan JSON ("An error occurred..."), maka
+  // res.json() melempar seekor "Unexpected token..." yang membingungkan pengguna.
+  const rawBody = await res.text();
+  let json;
+  try {
+    json = JSON.parse(rawBody);
+  } catch {
+    json = {};
+  }
   if (!res.ok) {
-    const errMsg = json?.error?.message || res.statusText;
+    const errMsg = json?.error?.message || rawBody.slice(0, 300) || res.statusText;
     const e = new Error('Gemini error ' + res.status + ': ' + errMsg);
     if (res.status === 429) {
       // Detail error Google memuat retryDelay (format "4.316142143s") → dipakai untuk menunggu.
