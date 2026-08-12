@@ -124,6 +124,9 @@ body {
   body.sb-collapsed #main-wrap {
     padding-left: 4.5rem;
   }
+  body.sb-collapsed footer {
+    padding-left: calc(4.5rem + 1rem);
+  }
   body.sb-collapsed #sidebar {
     width: 4.5rem;
   }
