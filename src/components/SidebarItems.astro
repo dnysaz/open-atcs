@@ -37,44 +37,11 @@ function isActive(href: string): boolean {
     <span class="sb-label">Peta Lokasi</span>
   </a>
 
-  <!-- Kamera Offline: klik untuk membuka 2 kartu (Denpasar / Bali) -->
-  <div>
-    <button type="button" data-offline-toggle class="sb-link w-full" aria-expanded="false" aria-controls="offline-panel">
-      <Icon name="warning" class="h-6 w-6 shrink-0" />
-      <span class="sb-label flex-1">Kamera Offline</span>
-      <Icon name="chevron-right" class="offline-chev h-4 w-4 shrink-0 text-dim transition-transform" />
-    </button>
-    <div id="offline-panel" class="hidden space-y-2 px-2 pt-2">
-      <a
-        href="/?s=offline"
-        data-nav
-        class={`group block rounded-xl border bg-ink2 p-3 transition-colors hover:bg-ink3 ${isActive('/?s=offline') ? 'border-brand/50' : 'border-ink5/60'}`}
-      >
-        <div class="flex items-start justify-between gap-2">
-          <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-ink3 text-snow">
-            <Icon name="pin" class="h-5 w-5" />
-          </span>
-          <span class="rounded-full bg-ink3 px-2 py-0.5 text-[11px] font-semibold text-dim">{off} kamera</span>
-        </div>
-        <h3 class="mt-2 text-sm font-bold">Offline Denpasar</h3>
-        <p class="mt-0.5 text-[11px] leading-relaxed text-dim">Kamera ATCS Kota Denpasar yang sedang tidak aktif.</p>
-      </a>
-      <a
-        href="/bali?s=offline"
-        data-nav
-        class={`group block rounded-xl border bg-ink2 p-3 transition-colors hover:bg-ink3 ${isActive('/bali?s=offline') ? 'border-brand/50' : 'border-ink5/60'}`}
-      >
-        <div class="flex items-start justify-between gap-2">
-          <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-ink3 text-snow">
-            <Icon name="tv" class="h-5 w-5" />
-          </span>
-          <span class="rounded-full bg-ink3 px-2 py-0.5 text-[11px] font-semibold text-dim">{baliOff} kamera</span>
-        </div>
-        <h3 class="mt-2 text-sm font-bold">Offline Bali</h3>
-        <p class="mt-0.5 text-[11px] leading-relaxed text-dim">Kamera CCTV Bali di luar Denpasar yang sedang tidak aktif.</p>
-      </a>
-    </div>
-  </div>
+  <!-- Kamera Offline: halaman berisi 2 kartu (Denpasar / Bali), seperti Peta Lokasi -->
+  <a href="/offline" data-nav class={`sb-link ${isActive('/offline') ? 'active' : ''}`}>
+    <Icon name="warning" class="h-6 w-6 shrink-0" />
+    <span class="sb-label">Kamera Offline</span>
+  </a>
 
   <div class="mx-3 my-3 border-t border-ink5/60"></div>
   <button type="button" data-cats-toggle data-cats-panel="cats-dps" class="sb-link w-full" aria-expanded="true" aria-controls="cats-dps">
@@ -143,29 +110,6 @@ function isActive(href: string): boolean {
       applyTheme(theme);
     })
   );
-
-  // ---------- Kamera Offline: toggle 2 kartu (Denpasar / Bali) ----------
-  const offToggle = document.querySelector<HTMLElement>('[data-offline-toggle]');
-  const offPanel = document.getElementById('offline-panel');
-  const offChev = offToggle?.querySelector('.offline-chev');
-
-  function syncOfflineOpen() {
-    if (!offToggle || !offPanel || !offChev) return;
-    const open = !offPanel.classList.contains('hidden');
-    offToggle.setAttribute('aria-expanded', String(open));
-    offChev.style.transform = open ? 'rotate(90deg)' : '';
-  }
-
-  offToggle?.addEventListener('click', () => {
-    offPanel?.classList.toggle('hidden');
-    syncOfflineOpen();
-  });
-
-  // Buka panel jika sedang di halaman ?s=offline (agar menu terlihat aktif)
-  if (/\?s=offline/.test(location.search) && offPanel) {
-    offPanel.classList.remove('hidden');
-    syncOfflineOpen();
-  }
 
   // ---------- ATCS Denpasar / ATCS Bali: show-hide sub kategori ----------
   // Default: Denpasar terbuka, Bali tertutup. Status toggle disimpan di

@@ -1,0 +1,80 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Icon from '../components/Icon.astro';
+import { offlineCount } from '../lib/cameras';
+import { baliCameras } from '../lib/cameras-bali';
+
+const off = offlineCount();
+const baliOff = baliCameras.filter((c) => c.status === 'offline').length;
+---
+
+<Layout
+  page="home"
+  title="Kamera Offline — CCTV Denpasar & Bali"
+  description="Daftar kamera CCTV yang sedang tidak aktif: Kota Denpasar dan Bali (luar Denpasar)."
+>
+  <div class="sticky top-[calc(3.5rem+env(safe-area-inset-top,0px))] z-20 border-b border-ink5/50 bg-ink/95 backdrop-blur">
+    <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 lg:px-6">
+      <div class="min-w-0">
+        <h1 class="flex items-center gap-2 text-base font-bold">
+          <Icon name="warning" class="h-5 w-5" />
+          Kamera Offline
+        </h1>
+        <p class="mt-0.5 text-xs text-dim">
+          Pilih area untuk melihat kamera yang sedang tidak aktif — {off} di Denpasar · {baliOff} di Bali (luar Denpasar).
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="px-4 py-4 lg:px-6 lg:py-5">
+    <!-- Dua kartu pilihan area -->
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <a
+        href="/?s=offline"
+        data-nav
+        class="group relative block overflow-hidden rounded-xl border border-ink5/60 bg-ink2 p-5 text-left transition-all hover:border-brand/50 hover:bg-ink3 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+      >
+        <div class="flex items-start justify-between gap-3">
+          <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-ink3">
+            <Icon name="pin" class="h-6 w-6" />
+          </span>
+          <span class="rounded-full bg-ink3 px-2.5 py-1 text-xs font-semibold text-dim transition-colors group-hover:bg-ink4">
+            {off} kamera
+          </span>
+        </div>
+        <h2 class="mt-3 text-base font-bold">Kamera Offline Denpasar</h2>
+        <p class="mt-1 text-xs leading-relaxed text-dim">
+          Kamera ATCS Kota Denpasar yang sedang tidak aktif. Klik untuk melihat daftarnya.
+        </p>
+        <span class="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-sky-500 transition-transform group-hover:translate-x-0.5">
+          <Icon name="warning" class="h-3.5 w-3.5" />
+          Lihat Offline Denpasar
+        </span>
+      </a>
+
+      <a
+        href="/bali?s=offline"
+        data-nav
+        class="group relative block overflow-hidden rounded-xl border border-ink5/60 bg-ink2 p-5 text-left transition-all hover:border-brand/50 hover:bg-ink3 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+      >
+        <div class="flex items-start justify-between gap-3">
+          <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-ink3">
+            <Icon name="tv" class="h-6 w-6" />
+          </span>
+          <span class="rounded-full bg-ink3 px-2.5 py-1 text-xs font-semibold text-dim transition-colors group-hover:bg-ink4">
+            {baliOff} kamera
+          </span>
+        </div>
+        <h2 class="mt-3 text-base font-bold">Kamera Offline Bali</h2>
+        <p class="mt-1 text-xs leading-relaxed text-dim">
+          Kamera CCTV Bali di luar Denpasar yang sedang tidak aktif. Klik untuk melihat daftarnya.
+        </p>
+        <span class="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-sky-500 transition-transform group-hover:translate-x-0.5">
+          <Icon name="warning" class="h-3.5 w-3.5" />
+          Lihat Offline Bali
+        </span>
+      </a>
+    </div>
+  </div>
+</Layout>
