@@ -1,0 +1,108 @@
+---
+import Layout from '../layouts/Layout.astro';
+import VideoCard from '../components/VideoCard.astro';
+import VideoCardBali from '../components/VideoCardBali.astro';
+import Icon from '../components/Icon.astro';
+import { cameras, searchText, onlineCount } from '../lib/cameras';
+import { baliCameras, baliSearchText } from '../lib/cameras-bali';
+
+const q = (Astro.url.searchParams.get('q') || '').trim().toLowerCase();
+const qEff = q.length >= 1 ? q : '';
+
+const dpsHits = qEff
+  ? cameras.filter((c) => searchText(c).includes(qEff))
+  : [];
+const baliHits = qEff
+  ? baliCameras.filter((c) => baliSearchText(c).includes(qEff))
+  : [];
+
+const totalHits = dpsHits.length + baliHits.length;
+const hasQuery = qEff.length > 0;
+---
+
+<Layout
+  page="home"
+  title={hasQuery ? `Pencarian "${q}" — CCTV Denpasar & Bali` : 'Pencarian Kamera CCTV'}
+  description="Cari kamera CCTV di seluruh Kota Denpasar dan Bali."
+>
+  <!-- Sticky header pencarian -->
+  <div class="sticky top-[calc(3.5rem+env(safe-area-inset-top,0px))] z-20 border-b border-ink5/50 bg-ink/95 backdrop-blur">
+    <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 lg:px-6">
+      <div class="min-w-0">
+        <h1 class="flex items-center gap-2 text-base font-bold">
+          <Icon name="search" class="h-5 w-5 text-brand" />
+          Pencarian Kamera CCTV
+        </h1>
+        <p class="mt-0.5 text-xs text-dim">
+          Cari di seluruh Kota Denpasar & Bali — kamera, lokasi, kategori.
+        </p>
+      </div>
+      <div class="w-full max-w-sm">
+        <form class="js-search-form flex w-full" role="search">
+          <input
+            name="q"
+            type="search"
+            value={q}
+            placeholder="Cari kamera, lokasi..."
+            class="js-search-input h-10 w-full rounded-l-full border border-ink5 bg-ink2 px-4 text-sm outline-none focus:border-sky-600"
+          />
+          <button type="submit" class="grid h-10 w-14 shrink-0 place-items-center rounded-r-full border border-l-0 border-ink5 bg-ink3 hover:bg-ink4" aria-label="Cari">
+            <Icon name="search" class="h-5 w-5" />
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="px-4 py-4 lg:px-6 lg:py-5">
+    {!hasQuery ? (
+      <div class="py-24 text-center text-dim">
+        <Icon name="search" class="mx-auto mb-4 h-12 w-12 opacity-40" />
+        <p class="font-medium text-snow">Cari kamera CCTV</p>
+        <p class="mt-1 text-sm">Ketik nama kamera, lokasi, atau kategori — hasil dari Denpasar & Bali akan muncul.</p>
+      </div>
+    ) : totalHits === 0 ? (
+      <div class="py-24 text-center text-dim">
+        <Icon name="search" class="mx-auto mb-4 h-12 w-12 opacity-40" />
+        <p class="font-medium text-snow">Kamera tidak ditemukan</p>
+        <p class="mt-1 text-sm">Tidak ada kamera dengan kata kunci "{q}". Coba kata kunci lain.</p>
+      </div>
+    ) : (
+      <div class="space-y-8">
+        <p class="text-sm text-dim">
+          Menampilkan {totalHits} hasil untuk <span class="font-medium text-snow">"{q}"</span>
+          {dpsHits.length > 0 && <> · {dpsHits.length} di Denpasar</>}
+          {baliHits.length > 0 && <> · {baliHits.length} di Bali</>}
+        </p>
+
+        <!-- Hasil Denpasar -->
+        {dpsHits.length > 0 && (
+          <section>
+            <h2 class="mb-3 flex items-center gap-2 text-sm font-semibold">
+              <Icon name="broadcast" class="h-4 w-4 text-brand" />
+              ATCS Denpasar
+              <span class="rounded-full bg-ink3 px-2 py-0.5 text-[11px] font-medium text-dim">{dpsHits.length}</span>
+            </h2>
+            <div class="grid grid-cols-1 gap-x-4 gap-y-7 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {dpsHits.map((c) => <VideoCard camera={c} />)}
+            </div>
+          </section>
+        )}
+
+        <!-- Hasil Bali -->
+        {baliHits.length > 0 && (
+          <section>
+            <h2 class="mb-3 flex items-center gap-2 text-sm font-semibold">
+              <Icon name="tv" class="h-4 w-4" />
+              CCTV Bali
+              <span class="rounded-full bg-ink3 px-2 py-0.5 text-[11px] font-medium text-dim">{baliHits.length}</span>
+            </h2>
+            <div class="grid grid-cols-1 gap-x-4 gap-y-7 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {baliHits.map((c) => <VideoCardBali camera={c} />)}
+            </div>
+          </section>
+        )}
+      </div>
+    )}
+  </div>
+</Layout>

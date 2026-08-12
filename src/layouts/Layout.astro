@@ -150,23 +150,12 @@ const {
         else if (input) input.value = '';
       });
 
-      // Submit pencarian: filter instan di halaman home (/ dan /bali), atau
-      // navigasi ke halaman terkait dengan query di halaman lain.
-      // Di /bali pakai hook __baliFilter; di home pakai __atcsFilter.
+      // Submit pencarian: selalu buka halaman /cari yang mencari kamera
+      // Denpasar & Bali SEKALIGUS (tidak lagi terbatas per halaman).
       function applySearch(q: string) {
-        const w = window as any;
-        const onBali = location.pathname.startsWith('/bali');
-        if (onBali && typeof w.__baliFilter === 'function') {
-          w.__baliFilter({ q });
-          return;
-        }
-        if (typeof w.__atcsFilter === 'function') {
-          w.__atcsFilter({ q });
-        } else {
-          const url = new URL(location.origin + (onBali ? '/bali' : '/'));
-          if (q) url.searchParams.set('q', q);
-          location.assign(url);
-        }
+        const url = new URL(location.origin + '/cari');
+        if (q) url.searchParams.set('q', q);
+        location.assign(url);
       }
 
       document.querySelectorAll<HTMLFormElement>('.js-search-form').forEach((form) => {
@@ -177,17 +166,11 @@ const {
         });
       });
 
-      // Tombol aksi bottom-nav mobile
+      // Tombol aksi bottom-nav mobile: buka baris input pencarian di header
       document.querySelectorAll<HTMLElement>('[data-action="search"]').forEach((btn) => {
         btn.addEventListener('click', () => {
-          if (document.body.dataset.page === 'home') {
-            searchMobile?.classList.remove('hidden');
-            searchMobile?.querySelector<HTMLInputElement>('input')?.focus();
-          } else if (location.pathname.startsWith('/bali')) {
-            location.assign('/bali');
-          } else {
-            location.assign('/');
-          }
+          searchMobile?.classList.remove('hidden');
+          searchMobile?.querySelector<HTMLInputElement>('input')?.focus();
         });
       });
       // Saat ukuran layar berubah ke desktop, tutup drawer
