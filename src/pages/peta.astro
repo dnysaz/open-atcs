@@ -2,14 +2,15 @@
 import Layout from '../layouts/Layout.astro';
 import Icon from '../components/Icon.astro';
 import { cameras, onlineCount, offlineCount } from '../lib/cameras';
+import { baliCameras } from '../lib/cameras-bali';
 
 const live = onlineCount();
 const off = offlineCount();
 const total = cameras.length;
+const baliTotal = baliCameras.length;
 
-// Semua kamera yang punya koordinat. Diserialisasi ke JSON dan dibaca script
-// via elemen <script type="application/json"> (define:vars tak mendukung import).
-const points = cameras
+// Kamera Denpasar yang punya koordinat
+const dpsPoints = cameras
   .filter((c) => c.lat != null && c.lon != null)
   .map((c) => ({
     cam: c.cam,
@@ -20,14 +21,32 @@ const points = cameras
     lat: c.lat,
     lon: c.lon,
     status: c.status,
+    route: '/watch/',
   }));
-const pointsJson = JSON.stringify(points).replace(/</g, '\\u003c'); // aman dari </script>
+
+// Kamera Bali (luar Denpasar) yang punya koordinat
+const baliPoints = baliCameras
+  .filter((c) => c.lat != null && c.lon != null)
+  .map((c) => ({
+    cam: c.cam,
+    nama: c.namaAlias,
+    lokasi: c.namaLokasi,
+    kategori: c.kategori,
+    ket: c.ketLokasi || '',
+    lat: c.lat,
+    lon: c.lon,
+    status: c.status,
+    route: '/bali/',
+  }));
+
+const allPoints = [...dpsPoints, ...baliPoints];
+const pointsJson = JSON.stringify(allPoints).replace(/</g, '\\u003c'); // aman dari </script>
 ---
 
 <Layout
   page="home"
-  title="Peta Lokasi CCTV — ATCS TV Denpasar"
-  description="Lihat semua kamera CCTV Kota Denpasar di peta interaktif, lengkap dengan tautan ke tiap kamera."
+  title="Peta Lokasi CCTV — Denpasar & Bali"
+  description="Pilih peta lokasi CCTV Kota Denpasar atau seluruh Bali, lengkap dengan tautan ke tiap kamera."
 >
   <div class="sticky top-[calc(3.5rem+env(safe-area-inset-top,0px))] z-20 border-b border-ink5/50 bg-ink/95 backdrop-blur">
     <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 lg:px-6">
@@ -37,7 +56,7 @@ const pointsJson = JSON.stringify(points).replace(/</g, '\\u003c'); // aman dari
           Peta Lokasi CCTV
         </h1>
         <p class="mt-0.5 text-xs text-dim">
-          Kota Denpasar — {total} kamera ({live} live · {off} offline). Klik penanda untuk membuka kamera.
+          Pilih area untuk melihat sebaran kamera — {total} di Denpasar · {baliTotal} di Bali (luar Denpasar).
         </p>
       </div>
       <div class="flex items-center gap-3 text-[11px] text-dim">
@@ -54,27 +73,96 @@ const pointsJson = JSON.stringify(points).replace(/</g, '\\u003c'); // aman dari
   </div>
 
   <div class="px-4 py-4 lg:px-6 lg:py-5">
-    <div class="relative">
-      <!-- Skeleton saat halaman dibuka -->
-      <div data-skeleton class="pointer-events-none absolute inset-0 z-10">
-        <div
-          class="flex h-[72vh] w-full animate-pulse items-center justify-center rounded-xl border border-ink5/60 bg-ink3 text-sm text-dim"
-        >
-          Memuat peta…
+    <!-- Dua kartu pilihan area -->
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <button
+        type="button"
+        data-map-choice="dps"
+        class="group relative overflow-hidden rounded-xl border border-ink5/60 bg-ink2 p-5 text-left transition-all hover:border-brand/50 hover:bg-ink3 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+        aria-pressed="false"
+      >
+        <div class="flex items-start justify-between gap-3">
+          <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand/15 text-brand">
+            <Icon name="pin" class="h-6 w-6" />
+          </span>
+          <span class="rounded-full bg-ink3 px-2.5 py-1 text-xs font-semibold text-dim transition-colors group-hover:bg-ink4">
+            {total} kamera
+          </span>
         </div>
+        <h2 class="mt-3 text-base font-bold">Peta Lokasi Denpasar</h2>
+        <p class="mt-1 text-xs leading-relaxed text-dim">
+          Kamera ATCS Kota Denpasar — {live} live · {off} offline. Klik untuk melihat sebaran kamera di peta.
+        </p>
+        <span class="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-sky-500 transition-transform group-hover:translate-x-0.5">
+          <Icon name="map" class="h-3.5 w-3.5" />
+          Buka Peta Denpasar
+        </span>
+      </button>
+
+      <button
+        type="button"
+        data-map-choice="bali"
+        class="group relative overflow-hidden rounded-xl border border-ink5/60 bg-ink2 p-5 text-left transition-all hover:border-brand/50 hover:bg-ink3 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+        aria-pressed="false"
+      >
+        <div class="flex items-start justify-between gap-3">
+          <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-orange-500/15 text-orange-500">
+            <Icon name="tv" class="h-6 w-6" />
+          </span>
+          <span class="rounded-full bg-ink3 px-2.5 py-1 text-xs font-semibold text-dim transition-colors group-hover:bg-ink4">
+            {baliTotal} kamera
+          </span>
+        </div>
+        <h2 class="mt-3 text-base font-bold">Peta Lokasi Seluruh Bali</h2>
+        <p class="mt-1 text-xs leading-relaxed text-dim">
+          Kamera CCTV Bali di luar Denpasar — Badung, Gianyar, Karangasem, Buleleng, dll. Klik untuk melihat peta.
+        </p>
+        <span class="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-sky-500 transition-transform group-hover:translate-x-0.5">
+          <Icon name="map" class="h-3.5 w-3.5" />
+          Buka Peta Bali
+        </span>
+      </button>
+    </div>
+
+    <!-- Area peta (muncul setelah salah satu kartu diklik) -->
+    <div id="map-area" class="relative mt-5 hidden">
+      <div class="mb-3 flex items-center justify-between gap-3">
+        <h2 id="map-title" class="flex items-center gap-2 text-sm font-semibold">
+          <Icon name="map" class="h-4 w-4 text-dim" />
+          <span id="map-title-text">Peta Lokasi</span>
+        </h2>
+        <button
+          type="button"
+          id="map-close"
+          class="flex items-center gap-1.5 rounded-full border border-ink5 bg-ink3 px-3 py-1.5 text-xs font-medium text-dim transition-colors hover:bg-ink4 hover:text-snow"
+        >
+          <Icon name="x" class="h-3.5 w-3.5" />
+          Tutup Peta
+        </button>
       </div>
 
-      <div data-reveal>
-        <div
-          id="all-map"
-          class="relative z-0 h-[72vh] w-full overflow-hidden rounded-xl border border-ink5/60"
-          aria-label="Peta lokasi seluruh kamera CCTV Kota Denpasar"
-          role="application"
-        ></div>
-        <p class="mt-2 text-[11px] text-dim">
-          Peta: OpenStreetMap © kontributor & CARTO · geser untuk menjelajah · zoom dengan +/− · klik penanda
-          untuk detail kamera
-        </p>
+      <div class="relative">
+        <!-- Skeleton saat peta dimuat -->
+        <div data-skeleton class="pointer-events-none absolute inset-0 z-10">
+          <div
+            class="flex h-[72vh] w-full animate-pulse items-center justify-center rounded-xl border border-ink5/60 bg-ink3 text-sm text-dim"
+          >
+            Memuat peta…
+          </div>
+        </div>
+
+        <div data-reveal>
+          <div
+            id="all-map"
+            class="relative z-0 h-[72vh] w-full overflow-hidden rounded-xl border border-ink5/60"
+            aria-label="Peta lokasi kamera CCTV"
+            role="application"
+          ></div>
+          <p class="mt-2 text-[11px] text-dim">
+            Peta: OpenStreetMap © kontributor & CARTO · geser untuk menjelajah · zoom dengan +/− · klik penanda
+            untuk detail kamera
+          </p>
+        </div>
       </div>
     </div>
   </div>
@@ -144,30 +232,89 @@ const pointsJson = JSON.stringify(points).replace(/</g, '\\u003c'); // aman dari
   import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 
   const el = document.getElementById('all-map');
-  if (el) {
-    let points: any[] = [];
-    try {
-      const data = document.getElementById('map-data');
-      points = data ? JSON.parse(data.textContent || '[]') : [];
-    } catch {
-      points = [];
-    }
-    const isDark = () => document.documentElement.getAttribute('data-theme') === 'dark';
-    const tileUrl = (dark: boolean) =>
-      dark
-        ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-        : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+  const mapArea = document.getElementById('map-area');
+  const mapTitle = document.getElementById('map-title-text');
+  const closeBtn = document.getElementById('map-close');
+  const choices = Array.from(document.querySelectorAll<HTMLElement>('[data-map-choice]'));
 
-    const map = L.map(el, {
-      center: [-8.6585, 115.2165],
-      zoom: 13,
-      minZoom: 11,
+  let points: any[] = [];
+  try {
+    const data = document.getElementById('map-data');
+    points = data ? JSON.parse(data.textContent || '[]') : [];
+  } catch {
+    points = [];
+  }
+
+  const isDark = () => document.documentElement.getAttribute('data-theme') === 'dark';
+  const tileUrl = (dark: boolean) =>
+    dark
+      ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+      : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+
+  const esc = (s: any) =>
+    String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
+
+  const pinIcon = (offline: boolean) =>
+    L.divIcon({
+      className: 'mp-divicon',
+      html:
+        '<div class="mp-pin' +
+        (offline ? ' off' : '') +
+        '">' +
+        '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+        '<path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/>' +
+        '<circle cx="12" cy="10" r="3"/>' +
+        '</svg></div>',
+      iconSize: [30, 30],
+      iconAnchor: [15, 28],
+      popupAnchor: [0, -28],
+    });
+
+  let map: any = null;
+  let tileLayer: any = null;
+  let cluster: any = null;
+  let themeObserver: MutationObserver | null = null;
+
+  function destroyMap() {
+    if (themeObserver) {
+      themeObserver.disconnect();
+      themeObserver = null;
+    }
+    if (map) {
+      try {
+        map.remove();
+      } catch {}
+      map = null;
+      tileLayer = null;
+      cluster = null;
+    }
+  }
+
+  // Bounds default per area (dipakai bila peta terlanjur dibuat sebelum data siap)
+  const AREA_META: Record<string, { title: string; center: [number, number]; zoom: number }> = {
+    dps: { title: 'Peta Lokasi Denpasar', center: [-8.6585, 115.2165], zoom: 13 },
+    bali: { title: 'Peta Lokasi Seluruh Bali', center: [-8.45, 115.1], zoom: 9 },
+  };
+
+  function buildMap(area: 'dps' | 'bali') {
+    destroyMap();
+    if (!el || !mapArea) return;
+
+    const meta = AREA_META[area];
+    if (mapTitle) mapTitle.textContent = meta.title;
+
+    const data = points.filter((p: any) => (area === 'dps' ? p.route === '/watch/' : p.route === '/bali/'));
+
+    // Buat peta dengan ukuran container saat ini; fitBounds akan menyesuaikan setelah markers masuk
+    map = L.map(el, {
+      center: meta.center,
+      zoom: meta.zoom,
+      minZoom: area === 'dps' ? 11 : 8,
       maxZoom: 19,
       scrollWheelZoom: false,
       attributionControl: true,
     });
 
-    let tileLayer: any = null;
     tileLayer = L.tileLayer(tileUrl(isDark()), {
       attribution:
         '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
@@ -175,58 +322,71 @@ const pointsJson = JSON.stringify(points).replace(/</g, '\\u003c'); // aman dari
       maxZoom: 19,
     }).addTo(map);
 
-    // Ganti tile peta saat tema berubah (pola sama seperti CameraMap)
-    new MutationObserver(() => {
+    themeObserver = new MutationObserver(() => {
       if (tileLayer) tileLayer.setUrl(tileUrl(isDark()));
-    }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    });
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
-    // Amankan teks dari data agar tidak merusak HTML popup
-    const esc = (s: any) =>
-      String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
-
-    const cluster = L.markerClusterGroup({
+    cluster = L.markerClusterGroup({
       showCoverageOnHover: false,
       maxClusterRadius: 42,
       chunkedLoading: true,
     });
 
-    const pinIcon = (offline: boolean) =>
-      L.divIcon({
-        className: 'mp-divicon',
-        html:
-          '<div class="mp-pin' +
-          (offline ? ' off' : '') +
-          '">' +
-          '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
-          '<path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/>' +
-          '<circle cx="12" cy="10" r="3"/>' +
-          '</svg></div>',
-        iconSize: [30, 30],
-        iconAnchor: [15, 28],
-        popupAnchor: [0, -28],
-      });
-
-    points.forEach((p: any) => {
+    data.forEach((p: any) => {
       const m = L.marker([p.lat, p.lon], { icon: pinIcon(p.status === 'offline'), title: p.nama });
       m.bindPopup(
         '<div style="min-width:190px">' +
           `<p class="mp-popup-title">${esc(p.nama)}</p>` +
           `<p class="mp-popup-meta">${esc(p.kategori)} · ${p.status === 'ok' ? '<b>LIVE</b>' : 'Offline'}<br>` +
           `${esc(p.lokasi)}${p.ket ? ' — ' + esc(p.ket) : ''}<br>${Number(p.lat).toFixed(5)}, ${Number(p.lon).toFixed(5)}</p>` +
-          `<a class="mp-popup-link" href="/watch/${esc(p.cam)}">▶ Lihat CCTV</a>` +
+          `<a class="mp-popup-link" href="${esc(p.route)}${esc(p.cam)}">▶ Lihat CCTV</a>` +
           '</div>'
       );
       cluster.addLayer(m);
     });
 
     map.addLayer(cluster);
-    // Hitung batas dari data langsung (bukan cluster) — aman dari race chunkedLoading
-    const bounds = L.latLngBounds(points.map((p: any) => [p.lat, p.lon]));
-    map.fitBounds(bounds.pad(0.12), { maxZoom: 14 });
+    // Fit bounds dari data — pakai chunkedLoading yang aman dengan bounds langsung
+    if (data.length) {
+      const bounds = L.latLngBounds(data.map((p: any) => [p.lat, p.lon]));
+      map.fitBounds(bounds.pad(0.12), { maxZoom: area === 'dps' ? 14 : 10 });
+    }
 
-    // Ukur ulang peta setelah halaman terlihat (skeleton/reveal)
-    window.addEventListener('load', () => window.setTimeout(() => map.invalidateSize(), 150));
-    window.setTimeout(() => map.invalidateSize(), 900);
-    window.addEventListener('resize', () => map.invalidateSize());
+    window.setTimeout(() => map.invalidateSize(), 150);
   }
+
+  function openMap(area: 'dps' | 'bali') {
+    if (!mapArea) return;
+    mapArea.classList.remove('hidden');
+    // Tandai kartu aktif
+    choices.forEach((c) => {
+      const active = c.dataset.mapChoice === area;
+      c.setAttribute('aria-pressed', String(active));
+      c.classList.toggle('ring-2', active);
+      c.classList.toggle('ring-brand/60', active);
+      c.classList.toggle('border-brand/60', active);
+    });
+    window.scrollTo({ top: mapArea.offsetTop - 80, behavior: 'smooth' });
+    buildMap(area);
+  }
+
+  choices.forEach((c) => {
+    c.addEventListener('click', () => openMap((c.dataset.mapChoice as 'dps' | 'bali') || 'dps'));
+  });
+
+  // Satu listener resize global (tidak menumpuk walau peta dibangun ulang berkali-kali)
+  window.addEventListener('resize', () => map?.invalidateSize());
+
+  closeBtn?.addEventListener('click', () => {
+    mapArea?.classList.add('hidden');
+    destroyMap();
+    choices.forEach((c) => {
+      c.setAttribute('aria-pressed', 'false');
+      c.classList.remove('ring-2', 'ring-brand/60', 'border-brand/60');
+    });
+  });
+
+  // Buka peta saat tombol close/skeleton tidak aktif — jangan auto-buka.
+  // Skeleton & reveal: hanya dipakai saat peta benar-benar dibuka.
 </script>
