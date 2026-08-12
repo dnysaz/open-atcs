@@ -1,0 +1,261 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import VideoPlayerBali from '../../components/VideoPlayerBali.astro';
+import VideoCardBali from '../../components/VideoCardBali.astro';
+import CameraMap from '../../components/CameraMap.astro';
+import Skeleton from '../../components/Skeleton.astro';
+import Icon from '../../components/Icon.astro';
+import { baliCameras, baliCameraByCam, baliCodecLabel, baliRelated } from '../../lib/cameras-bali';
+
+export function getStaticPaths() {
+  return baliCameras.map((c) => ({ params: { id: c.cam } }));
+}
+
+const { id } = Astro.params;
+const camera = baliCameraByCam(id!);
+
+if (!camera) {
+  return Astro.redirect('/bali');
+}
+
+const related = baliRelated(camera.cam, 48);
+const coords = camera.lat != null && camera.lon != null ? `${camera.lat}, ${camera.lon}` : '—';
+const codecLabel = baliCodecLabel(camera);
+const isHevc = codecLabel === 'HEVC';
+---
+
+<Layout
+  page="watch"
+  title={`${camera.namaAlias} — LIVE CCTV Bali`}
+  description={`Kamera CCTV ${camera.namaAlias} — live streaming dari Bali Satu Data (luar Kota Denpasar).`}
+>
+  <div class="mx-auto max-w-[1800px] px-4 py-4 lg:px-6 lg:py-6">
+    <div class="lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-6 xl:gap-8">
+      <!-- Kolom utama: sticky penuh di desktop, hanya kolom kanan yang bergerak saat scroll -->
+      <div class="relative min-w-0 lg:sticky lg:top-[calc(3.5rem+env(safe-area-inset-top,0px))] lg:z-10 lg:max-h-[calc(100vh-3.5rem-env(safe-area-inset-top,0px))] lg:self-start lg:overflow-y-auto">
+        <!-- Skeleton player + teks -->
+        <div data-skeleton class="pointer-events-none absolute inset-0 z-20 space-y-6">
+          <Skeleton kind="player" />
+          <div class="space-y-3 px-1">
+            <Skeleton kind="lines" />
+            <Skeleton kind="lines" />
+          </div>
+        </div>
+
+        <div data-reveal>
+          <VideoPlayerBali camera={camera} />
+
+          <div class="mt-6 mb-2 lg:mt-10 lg:mb-4">
+            <h1 class="text-lg font-bold leading-snug lg:text-xl">{camera.namaAlias}</h1>
+
+            <div class="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-2 text-xs">
+              <span class="live-pill">
+                <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-white"></span>
+                LIVE
+              </span>
+              <span class="rounded-full bg-ink3 px-2.5 py-1 font-medium">{codecLabel}</span>
+              <span class="rounded-full bg-ink3 px-2.5 py-1 font-medium">{camera.kategori}</span>
+              <span class="flex items-center gap-1 text-dim">
+                <Icon name="pin" class="h-3.5 w-3.5" />
+                {camera.namaLokasi}
+              </span>
+              <div class="flex w-full items-center justify-start gap-2 sm:ml-auto sm:w-auto sm:justify-end">
+                <button
+                  id="btn-share"
+                  class="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-ink3 px-3.5 py-2 font-medium text-snow transition-colors hover:bg-ink4 sm:flex-none sm:py-1.5"
+                >
+                  <Icon name="share" class="h-4 w-4" />
+                  Bagikan
+                </button>
+                <a
+                  href={camera.playerUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  class="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-ink3 px-3.5 py-2 font-medium text-snow transition-colors hover:bg-ink4 sm:flex-none sm:py-1.5"
+                >
+                  <Icon name="external" class="h-4 w-4" />
+                  Sumber
+                </a>
+              </div>
+            </div>
+
+            <div class="mt-4 rounded-xl border border-ink5/60 bg-ink2 p-4 text-sm">
+              <div class="flex flex-wrap items-start justify-between gap-4">
+                <div class="min-w-0">
+                  <p class="font-semibold">{camera.namaLokasi}</p>
+                  <p class="mt-1 text-dim">
+                    Live streaming CCTV dari Bali Satu Data — cakupan di luar Kota Denpasar (kabupaten/kota lain di Bali).
+                  </p>
+                  {isHevc && (
+                    <p class="mt-2 flex items-start gap-1.5 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-[11px] leading-relaxed text-dim dark:bg-amber-400/5">
+                      <span class="mt-0.5 shrink-0">ℹ️</span>
+                      <span>
+                        Kamera ini memakai format <b class="text-snow">HEVC/H.265</b>. Di Chrome/Android, stream HEVC
+                        biasanya tidak bisa diputar — gunakan <b class="text-snow">Safari (iPhone/Mac)</b> atau buka{' '}
+                        <a href={camera.playerUrl} target="_blank" rel="noreferrer" class="font-semibold text-sky-500 hover:text-sky-400">
+                          player resmi
+                        </a>
+                        .
+                      </span>
+                    </p>
+                  )}
+                </div>
+                <div class="w-full text-left text-xs text-dim sm:w-auto sm:shrink-0 sm:text-right">
+                  <p>
+                    ID Kamera: <span class="font-mono text-snow">{camera.ch_id}</span>
+                  </p>
+                  {coords !== '—' && (
+                    <p>
+                      Koordinat:{' '}
+                      <button
+                        id="btn-coords"
+                        type="button"
+                        class="cursor-pointer font-mono text-snow underline decoration-dotted decoration-dim/50 underline-offset-2 transition-colors hover:text-brand hover:decoration-brand"
+                        title="Klik untuk melihat lokasi kamera di peta"
+                      >
+                        {coords}
+                      </button>
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <!-- Peta lokasi kamera (muncul saat koordinat diklik) -->
+              <CameraMap
+                cam={camera.cam}
+                namaAlias={camera.namaAlias}
+                lat={camera.lat}
+                lon={camera.lon}
+                kategori={camera.kategori}
+              />
+
+              <!-- Disclaimer -->
+              <div class="mt-4 rounded-lg border border-yellow-400/30 bg-yellow-400/15 px-3 py-2.5 text-[11px] leading-relaxed text-dim dark:bg-yellow-400/10">
+                <p>
+                  Bukan situs resmi — halaman tampilan agregat untuk memudahkan pemantauan. Seluruh data dan stream
+                  kamera merupakan milik Pemerintah Provinsi Bali melalui{' '}
+                  <a
+                    href="https://balisatudata.baliprov.go.id/peta-cctv"
+                    target="_blank"
+                    rel="noreferrer"
+                    class="font-semibold text-amber-700 underline decoration-amber-700/40 underline-offset-2 transition-colors hover:text-amber-600 hover:decoration-amber-600 dark:text-amber-400 dark:decoration-amber-400/40 dark:hover:text-amber-300"
+                  >
+                    balisatudata.baliprov.go.id
+                  </a>
+                  .
+                </p>
+              </div>
+            </div>
+
+            <!-- Info sumber di bawah deskripsi video -->
+            <div class="mt-4 flex items-start gap-3 rounded-xl border border-ink5/60 bg-ink2 p-4 text-xs leading-relaxed text-dim">
+              <Icon name="info" class="mt-0.5 h-4 w-4 shrink-0 text-sky-500" />
+              <p>
+                <span class="font-semibold text-snow">CCTV Bali</span> — pemantauan kamera CCTV di luar Kota Denpasar
+                secara real-time. Sumber data resmi dari{' '}
+                <a href="https://balisatudata.baliprov.go.id/peta-cctv" target="_blank" rel="noreferrer" class="text-sky-500 hover:text-sky-400">
+                  balisatudata.baliprov.go.id
+                </a>{' '}
+                (Satu Data Indonesia Provinsi Bali).
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Video terkait -->
+      <aside class="relative mt-6 min-w-0 lg:mt-0">
+        <h2 class="mb-3 flex items-center gap-2 text-sm font-semibold">
+          <Icon name="grid" class="h-4 w-4 text-dim" />
+          Kamera Lainnya
+        </h2>
+
+        <!-- Skeleton related -->
+        <div data-skeleton class="pointer-events-none absolute inset-x-0 top-9 z-20 space-y-3">
+          {Array.from({ length: 6 }).map(() => <Skeleton kind="compact" />)}
+        </div>
+
+        <div data-reveal>
+          <div id="related-grid" class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
+            {related.map((c) => (
+              <VideoCardBali camera={c} variant="compact" />
+            ))}
+          </div>
+          <button
+            id="btn-loadmore-related"
+            class="mt-5 hidden w-full items-center justify-center gap-2 rounded-full border border-ink5 bg-ink3 px-4 py-2 text-sm font-medium transition-colors hover:bg-ink4 flex"
+          >
+            <Icon name="more" class="h-4 w-4" />
+            Muat Lebih Banyak
+          </button>
+          <a href="/bali" class="mt-4 block text-center text-sm font-medium text-sky-500 transition-colors hover:text-sky-400">
+            Lihat semua kamera Bali →
+          </a>
+        </div>
+      </aside>
+    </div>
+  </div>
+</Layout>
+
+<script>
+  // ---------- Load more daftar kamera terkait (12 per batch) ----------
+  const relatedCards = Array.from(document.querySelectorAll<HTMLElement>('#related-grid [data-cam-card]'));
+  const btnRelated = document.getElementById('btn-loadmore-related') as HTMLButtonElement | null;
+  const REL_BATCH = 12;
+  let relatedVisible = REL_BATCH;
+
+  function applyRelated() {
+    relatedCards.forEach((c, i) => c.classList.toggle('hidden', i >= relatedVisible));
+    if (btnRelated) btnRelated.classList.toggle('hidden', relatedVisible >= relatedCards.length);
+  }
+
+  btnRelated?.addEventListener('click', () => {
+    if (btnRelated.dataset.loading) return;
+    btnRelated.dataset.loading = '1';
+    const original = btnRelated.innerHTML;
+    btnRelated.innerHTML =
+      '<span class="h-4 w-4 animate-spin rounded-full border-2 border-ink5 border-t-snow"></span> Memuat...';
+    btnRelated.classList.add('pointer-events-none', 'opacity-70');
+    window.setTimeout(() => {
+      relatedVisible += REL_BATCH;
+      applyRelated();
+      btnRelated.innerHTML = original;
+      btnRelated.classList.remove('pointer-events-none', 'opacity-70');
+      delete btnRelated.dataset.loading;
+    }, 450);
+  });
+
+  applyRelated();
+
+  // ---------- Toast kecil ----------
+  function toast(msg: string) {
+    const t = document.createElement('div');
+    t.textContent = msg;
+    t.className =
+      'fixed left-1/2 top-20 z-[70] -translate-x-1/2 rounded-full bg-snow px-4 py-2 text-sm font-medium text-ink shadow-xl transition-opacity duration-300';
+    document.body.appendChild(t);
+    window.setTimeout(() => {
+      t.style.opacity = '0';
+      window.setTimeout(() => t.remove(), 300);
+    }, 2200);
+  }
+
+  // Tombol Bagikan → salin tautan
+  const shareBtn = document.getElementById('btn-share');
+  shareBtn?.addEventListener('click', async () => {
+    const url = location.href;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = url;
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+      } catch {}
+      ta.remove();
+    }
+    toast('Link disalin!');
+  });
+</script>

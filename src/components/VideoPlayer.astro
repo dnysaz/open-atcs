@@ -154,6 +154,10 @@ const posterStyle = camera
     if (!controls) return;
     controls.classList.toggle('opacity-0', !show);
     controls.classList.toggle('opacity-100', show);
+    // Saat tersembunyi, kontrol tidak boleh menangkap tap (di HP, tap yang dimaksudkan
+    // untuk memunculkan kontrol tidak boleh kena tombol invisible).
+    controls.classList.toggle('pointer-events-none', !show);
+    controls.classList.toggle('pointer-events-auto', show);
   }
 
   function resetIdleTimer() {
@@ -318,23 +322,88 @@ const posterStyle = camera
     syncVolumeUI();
   });
 
+  // ---- Layar penuh: kompatibel lintas browser ----------------
+  // iOS Safari TIDAK mendukung requestFullscreen() pada <div> (hanya video via
+  // webkitEnterFullscreen). Tanpa fallback ini, tombol fullscreen "tidak bereaksi"
+  // di iPhone/iPad — padahal handler jalan tapi promise-nya ditolak diam-diam.
+  function enterFullscreen() {
+    if (video && typeof video.webkitEnterFullscreen === 'function') {
+      // iOS Safari: fullscreen khusus elemen <video>
+      video.webkitEnterFullscreen();
+      return;
+    }
+    if (root.requestFullscreen) root.requestFullscreen().catch(() => {});
+    else if ((root as any).webkitRequestFullscreen) (root as any).webkitRequestFullscreen();
+  }
+
+  function exitFullscreen() {
+    if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+    else if ((document as any).webkitExitFullscreen) (document as any).webkitExitFullscreen();
+  }
+
   fsBtn?.addEventListener('click', () => {
-    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-    else root.requestFullscreen().catch(() => {});
+    if (document.fullscreenElement || (document as any).webkitFullscreenElement) exitFullscreen();
+    else enterFullscreen();
   });
 
-  document.addEventListener('fullscreenchange', () => {
-    const fs = !!document.fullscreenElement;
+  function syncFsIcon() {
+    const fs = !!(document.fullscreenElement || (document as any).webkitFullscreenElement);
     icoExpand?.classList.toggle('hidden', fs);
     icoCollapse?.classList.toggle('hidden', !fs);
-  });
+  }
+  document.addEventListener('fullscreenchange', syncFsIcon);
+  document.addEventListener('webkitfullscreenchange', syncFsIcon);
+  // iOS: webkitEnterFullscreen tidak memicu fullscreenchange, pakai event khusus video
+  video.addEventListener('webkitbeginfullscreen', syncFsIcon);
+  video.addEventListener('webkitendfullscreen', syncFsIcon);
 
-  pipBtn?.addEventListener('click', async () => {
-    try {
-      if (document.pictureInPictureElement) await document.exitPictureInPicture();
-      else await video.requestPictureInPicture();
-    } catch {}
-  });
+  // ---- Picture-in-Picture: kompatibel lintas browser ----
+  // Android/desktop Chrome: requestPictureInPicture() → jendela kecil bisa dibuka.
+  // iPad & Safari macOS: webkitSetPresentationMode('picture-in-picture').
+  // iPhone (iOS Safari): TIDAK ADA API PiP sama sekali — PiP di iPhone hanya aktif
+  // otomatis oleh sistem (geser ke atas / kunci layar saat video diputar). Jadi di
+  // iPhone tombol tidak bisa membuka PiP; kami tampilkan panduan singkat alih-alih
+  // tombol mati atau tombol yang hilang tanpa penjelasan.
+  const supportsPip =
+    !!document.pictureInPictureEnabled && typeof video.requestPictureInPicture === 'function';
+  const supportsWebkitPip = typeof (video as any).webkitSetPresentationMode === 'function';
+  const isIPhone = /iPhone|iPod/.test(navigator.userAgent);
+
+  // Toast kecil untuk umpan balik (sama gaya dengan toast di halaman)
+  function playerToast(msg: string) {
+    const t = document.createElement('div');
+    t.textContent = msg;
+    t.className =
+      'fixed left-1/2 top-20 z-[70] max-w-[85vw] -translate-x-1/2 rounded-full bg-snow px-4 py-2 text-center text-xs font-medium text-ink shadow-xl transition-opacity duration-300';
+    document.body.appendChild(t);
+    window.setTimeout(() => {
+      t.style.opacity = '0';
+      window.setTimeout(() => t.remove(), 300);
+    }, 3200);
+  }
+
+  if (supportsPip || (supportsWebkitPip && !isIPhone)) {
+    pipBtn?.addEventListener('click', async () => {
+      try {
+        if ((document as any).pictureInPictureElement) {
+          if (document.exitPictureInPicture) await document.exitPictureInPicture();
+          else (video as any).webkitSetPresentationMode('inline');
+        } else if (typeof video.requestPictureInPicture === 'function') {
+          await video.requestPictureInPicture();
+        } else {
+          (video as any).webkitSetPresentationMode('picture-in-picture');
+        }
+      } catch {}
+    });
+  } else {
+    // iPhone: beri tahu cara PiP yang benar alih-alih tombol mati
+    pipBtn?.addEventListener('click', () => {
+      playerToast(
+        'Di iPhone, Picture-in-Picture aktif otomatis: geser ke atas atau kunci layar saat video diputar.'
+      );
+    });
+    pipBtn?.setAttribute('aria-label', 'Picture in picture (otomatis di iPhone)');
+  }
 
   retryBtn?.addEventListener('click', initPlayer);
 

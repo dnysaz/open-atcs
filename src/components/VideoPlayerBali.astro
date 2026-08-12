@@ -1,0 +1,399 @@
+---
+import Icon from './Icon.astro';
+import { baliCodecLabel, hashHue } from '../lib/cameras-bali';
+import type { BaliCamera } from '../lib/cameras-bali';
+
+interface Props {
+  camera: BaliCamera;
+}
+
+const { camera } = Astro.props;
+const hue = hashHue(camera.cam);
+const gradient = `background:linear-gradient(135deg,hsl(${hue} 45% 22%),hsl(${(hue + 45) % 360} 45% 12%))`;
+const codecLabel = baliCodecLabel(camera);
+const isMp4 = camera.kind === 'mp4';
+const isHvc = camera.codec.toLowerCase().startsWith('hvc1') || camera.codec.toLowerCase().startsWith('hev1');
+// Stream diputar lewat path same-origin /bali-stream (proxy Vercel/dev) — lihat api/bali-stream.mjs
+const streamUrl = camera.stream;
+---
+
+<div
+  id="player"
+  data-url={streamUrl}
+  data-kind={camera.kind}
+  data-hevc={isHvc ? '1' : '0'}
+  class="group/player relative aspect-video w-full select-none overflow-hidden rounded-xl bg-black"
+>
+  <video id="pv" class="absolute inset-0 h-full w-full" playsinline muted preload="auto" aria-label={camera.namaAlias}></video>
+
+  <!-- Poster / loading -->
+  <div id="pposter" class="absolute inset-0 flex flex-col items-center justify-center gap-4" style={gradient}>
+    <span class="h-12 w-12 animate-spin rounded-full border-4 border-white/20 border-t-white"></span>
+    <p class="text-sm text-white/70">Memuat stream kamera...</p>
+  </div>
+
+  <!-- Error -->
+  <div id="perr" class="absolute inset-0 z-30 hidden flex-col items-center justify-center gap-3 bg-ink/95 p-6 text-center">
+    <Icon name="warning" class="h-12 w-12 text-yellow-500" />
+    <p class="font-semibold">Kamera tidak dapat diakses</p>
+    <p class="max-w-sm text-sm text-dim" id="perr-msg">Stream sedang bermasalah. Coba beberapa saat lagi.</p>
+    <button
+      id="perr-retry"
+      class="mt-1 flex items-center gap-2 rounded-full bg-brand px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand2"
+    >
+      <Icon name="retry" class="h-4 w-4" />
+      Coba Lagi
+    </button>
+    <a
+      id="perr-source"
+      href={camera.playerUrl}
+      target="_blank"
+      rel="noreferrer"
+      class="mt-1 hidden flex items-center gap-1.5 rounded-full border border-ink5 bg-ink3 px-4 py-2 text-xs font-medium text-snow transition-colors hover:bg-ink4"
+    >
+      <Icon name="external" class="h-3.5 w-3.5" />
+      Buka di Player Resmi
+    </a>
+  </div>
+
+  <!-- Kontrol bawah -->
+  <div
+    id="pcontrols"
+    class="absolute inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black/85 via-black/40 to-transparent px-3 pb-2 pt-10 opacity-0 transition-opacity duration-200 group-hover/player:opacity-100"
+  >
+    <div class="flex items-center gap-1">
+      <button id="pplay" class="grid h-9 w-9 place-items-center rounded-full hover:bg-white/15" aria-label="Putar / jeda">
+        <Icon id="ic-play" name="play" class="h-5 w-5 text-white" />
+      </button>
+      <button id="pmute" class="grid h-9 w-9 place-items-center rounded-full hover:bg-white/15" aria-label="Senyap">
+        <Icon name="vol" class="h-5 w-5 text-white" />
+      </button>
+      <input id="pvol" type="range" min="0" max="100" value="100" class="vol w-20 sm:w-28" aria-label="Volume" />
+      <span class="ml-1 flex items-center gap-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold text-white/90">
+        <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500"></span>
+        LIVE
+      </span>
+      <span class="ml-1 hidden rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white/80 sm:inline">
+        {codecLabel}
+      </span>
+      <div class="ml-auto flex items-center gap-1">
+        <button id="pip" class="grid h-9 w-9 place-items-center rounded-full hover:bg-white/15" aria-label="Picture in picture">
+          <Icon name="pip" class="h-5 w-5 text-white" />
+        </button>
+        <button id="pfs" class="grid h-9 w-9 place-items-center rounded-full hover:bg-white/15" aria-label="Layar penuh">
+          <Icon name="expand" class="h-5 w-5 text-white" />
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const root = document.getElementById('player') as HTMLElement | null;
+  const video = document.getElementById('pv') as HTMLVideoElement | null;
+  if (!root || !video) throw new Error('player elements missing');
+
+  const url = root.dataset.url || '';
+  const kind = root.dataset.kind || 'hls';
+  const isHevc = root.dataset.hevc === '1';
+  const controls = document.getElementById('pcontrols');
+  const poster = document.getElementById('pposter');
+  const errorBox = document.getElementById('perr');
+  const errorMsg = document.getElementById('perr-msg');
+  const retryBtn = document.getElementById('perr-retry') as HTMLButtonElement | null;
+  const sourceLink = document.getElementById('perr-source') as HTMLAnchorElement | null;
+  const playBtn = document.getElementById('pplay');
+  const icPlay = document.getElementById('ic-play');
+  const muteBtn = document.getElementById('pmute');
+  const volInput = document.getElementById('pvol') as HTMLInputElement | null;
+  const pipBtn = document.getElementById('pip') as HTMLButtonElement | null;
+  const fsBtn = document.getElementById('pfs') as HTMLButtonElement | null;
+
+  let hls: any = null;
+  let retries = 0;
+  let initGen = 0;
+  let autoRetried = false;
+  let playerError = false;
+  const MAX_RETRIES = 5;
+
+  // ---------- util ----------
+  function showError(msg: string, showSource: boolean) {
+    playerError = true;
+    if (errorMsg) errorMsg.textContent = msg;
+    errorBox?.classList.remove('hidden');
+    errorBox?.classList.add('flex');
+    poster?.classList.add('hidden');
+    if (sourceLink) {
+      if (showSource) sourceLink.classList.remove('hidden');
+      else sourceLink.classList.add('hidden');
+    }
+  }
+  function hideError() {
+    playerError = false;
+    errorBox?.classList.add('hidden');
+    errorBox?.classList.remove('flex');
+    poster?.classList.remove('hidden');
+    if (sourceLink) sourceLink.classList.add('hidden');
+  }
+
+  const canUseHlsJs = () => {
+    if (kind === 'mp4') return false;
+    if (isHevc) {
+      // HEVC hanya bisa via hls.js bila browser mendukung HEVC di MSE
+      // (Safari/iOS/macOS). Cek lewat MediaSource jika tersedia.
+      try {
+        const ms = (window as any).MediaSource;
+        if (ms?.isTypeSupported?.('video/mp4; codecs="hvc1.1.6.L93.b0"')) return true;
+        if (ms?.isTypeSupported?.('video/mp4; codecs="hvc1"')) return true;
+      } catch {}
+      return false;
+    }
+    return true;
+  };
+
+  // Deteksi native HLS (Safari / iOS): video tag dapat memutar .m3u8 langsung.
+  // PENTING: canPlayType('application/vnd.apple.mpegurl') mengembalikan "maybe"
+  // di Chrome/headless (truthy) padahal Chrome TIDAK bisa native HLS — jadi
+  // hanya andalkan Safari sejati (userAgent Safari tanpa Chrome) + nilai 'probably'.
+  const isSafariUA =
+    /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+    (/Safari\//.test(navigator.userAgent) && !/Chrome|CriOS|Edg\//.test(navigator.userAgent));
+  const canNativeHls = () => {
+    try {
+      return isSafariUA && video.canPlayType('application/vnd.apple.mpegurl') === 'probably';
+    } catch {
+      return false;
+    }
+  };
+
+  function destroyHls() {
+    if (hls) {
+      try {
+        hls.destroy();
+      } catch {}
+      hls = null;
+    }
+  }
+
+  function setPlayingUI() {
+    icPlay?.setAttribute('name', 'pause');
+    poster?.classList.add('hidden');
+  }
+
+  // ---------- init player ----------
+  async function initPlayer() {
+    const gen = ++initGen;
+    hideError();
+    poster?.classList.remove('hidden');
+    retries = 0;
+    autoRetried = false;
+    destroyHls();
+
+    if (gen !== initGen) return;
+
+    // MP4 (Shinobi): putar langsung + timeout pemuatan agar tidak macet loading
+    if (kind === 'mp4') {
+      video.src = url;
+      // Server Shinobi kadang lambat/offline — beri batas waktu dan pesan yang jelas
+      const loadTimer = window.setTimeout(() => {
+        if (gen !== initGen) return;
+        // Hanya andalkan readyState (bukan video.paused) agar autoplay yang diblokir
+        // atau server sehat-tapi-lambat tidak salah dianggap gagal.
+        if (video.readyState < 2 && !video.error) {
+          showError(
+            'Stream kamera (MP4) tidak dapat dimuat — server sumber sedang lambat/offline. Coba lagi atau buka player resmi.',
+            true
+          );
+        }
+      }, 30000);
+      const clearTimer = () => window.clearTimeout(loadTimer);
+      video.addEventListener('playing', clearTimer, { once: true });
+      video.addEventListener('loadeddata', clearTimer, { once: true });
+      video.addEventListener('error', () => {
+        if (gen !== initGen) return;
+        showError('Stream kamera (MP4) gagal dimuat — server sumber sedang bermasalah.', true);
+      }, { once: true });
+      video.play().catch(() => {});
+      return;
+    }
+
+    // HEVC + browser tanpa dukungan → native HLS (Safari) atau pesan bantuan
+    if (isHevc && !canUseHlsJs()) {
+      if (canNativeHls()) {
+        video.src = url; // Safari/iOS memutar HLS HEVC native
+        video.play().catch(() => {});
+        return;
+      }
+      showError(
+        'Kamera ini memakai format HEVC yang belum didukung browser ini. Gunakan Safari (iPhone/Mac) atau buka melalui tautan player resmi.',
+        true
+      );
+      return;
+    }
+
+    // H.264 / codec umum → hls.js (semua browser modern)
+    try {
+      const mod: any = await import('hls.js');
+      const Hls = mod.default || mod.Hls;
+      if (!Hls.isSupported()) {
+        if (canNativeHls()) {
+          video.src = url;
+          video.play().catch(() => {});
+          return;
+        }
+        showError('Browser tidak mendukung pemutaran HLS.', false);
+        return;
+      }
+      if (gen !== initGen) return;
+      hls = new Hls({
+        manifestLoadingTimeOut: 15000,
+        levelLoadingTimeOut: 15000,
+        fragLoadingTimeOut: 20000,
+        manifestLoadingMaxRetry: 3,
+        levelLoadingMaxRetry: 4,
+        fragLoadingMaxRetry: 4,
+        enableWorker: true,
+      });
+      hls.loadSource(url);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        if (gen !== initGen) return;
+        setPlayingUI();
+        video.play().catch(() => {});
+      });
+      hls.on(Hls.Events.ERROR, (_e: any, data: any) => {
+        if (gen !== initGen) return;
+        if (!data?.fatal) return;
+        // Stream HEVC di browser yang tidak mendukung (atau codec tidak kompatibel):
+        // beri fallback native Safari / pesan + tombol player resmi, bukan spinner abadi.
+        if (
+          String(data.details || '').includes('IncompatibleCodecs') ||
+          String(data.details || '').toLowerCase().includes('incompatible')
+        ) {
+          if (canNativeHls()) {
+            video.src = url;
+            video.play().catch(() => {});
+            return;
+          }
+          showError(
+            'Kamera ini memakai format yang belum didukung browser ini (kemungkinan HEVC). Gunakan Safari (iPhone/Mac) atau buka melalui tautan player resmi.',
+            true
+          );
+          return;
+        }
+        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+          retries++;
+          if (retries <= MAX_RETRIES) {
+            const wait = Math.min(8000, 500 * Math.pow(2, retries));
+            window.setTimeout(() => {
+              if (gen === initGen && !autoRetried) {
+                destroyHls();
+                if (gen === initGen) initPlayer();
+              }
+            }, wait);
+          } else if (!autoRetried) {
+            autoRetried = true;
+            retries = 0;
+            window.setTimeout(() => {
+              if (gen === initGen) initPlayer();
+            }, 12000);
+          } else {
+            showError('Stream kamera sedang bermasalah. Coba beberapa saat lagi.', false);
+          }
+        } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+          hls?.recoverMediaError();
+        } else {
+          showError('Terjadi kesalahan saat memuat stream.', false);
+        }
+      });
+    } catch (e: any) {
+      showError('Gagal memuat pemutar video.', false);
+    }
+  }
+
+  // ---------- kontrol ----------
+  playBtn?.addEventListener('click', () => {
+    if (video.paused) video.play().catch(() => {});
+    else video.pause();
+  });
+  video.addEventListener('play', () => icPlay?.setAttribute('name', 'pause'));
+  video.addEventListener('pause', () => icPlay?.setAttribute('name', 'play'));
+
+  muteBtn?.addEventListener('click', () => {
+    video.muted = !video.muted;
+    muteBtn.innerHTML = video.muted
+      ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5"><path d="M11 5 6 9H2v6h4l5 4V5z" fill="currentColor" stroke="none"/><path d="m23 9-6 6"/><path d="m17 9 6 6"/></svg>'
+      : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5"><path d="M11 5 6 9H2v6h4l5 4V5z" fill="currentColor" stroke="none"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>';
+  });
+
+  volInput?.addEventListener('input', () => {
+    video.volume = Number(volInput.value) / 100;
+    video.muted = Number(volInput.value) === 0;
+  });
+
+  // ---------- fullscreen (fallback iOS webkit) ----------
+  fsBtn?.addEventListener('click', async () => {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen().catch(() => {});
+      } else {
+        const r = root as any;
+        if (r.requestFullscreen) await r.requestFullscreen().catch(() => {});
+        else if (video.webkitEnterFullscreen) video.webkitEnterFullscreen();
+        else if (r.webkitRequestFullscreen) r.webkitRequestFullscreen();
+      }
+    } catch {}
+  });
+
+  // ---------- PiP ----------
+  const supportsPip = () => {
+    try {
+      return !!(document as any).pictureInPictureEnabled && !!video.requestPictureInPicture;
+    } catch {
+      return false;
+    }
+  };
+  const supportsWebkitPip = () => {
+    try {
+      return typeof (video as any).webkitSetPresentationMode === 'function';
+    } catch {
+      return false;
+    }
+  };
+  // iPhone: tanpa API PiP → sembunyikan tombol; di browser lain fallback webkit (iPad/macOS)
+  const isIPhone = /iPhone|iPod/.test(navigator.userAgent);
+  if (pipBtn) {
+    if (supportsPip() || supportsWebkitPip()) {
+      pipBtn.classList.remove('hidden');
+    } else if (isIPhone) {
+      pipBtn.classList.add('hidden');
+    } else {
+      pipBtn.classList.add('hidden');
+    }
+  }
+  pipBtn?.addEventListener('click', async () => {
+    try {
+      if ((document as any).pictureInPictureElement) {
+        await (document as any).exitPictureInPicture();
+      } else if (video.requestPictureInPicture) {
+        await video.requestPictureInPicture();
+      } else if ((video as any).webkitSetPresentationMode) {
+        (video as any).webkitSetPresentationMode('picture-in-picture');
+      }
+    } catch {}
+  });
+
+  // ---------- retry manual ----------
+  retryBtn?.addEventListener('click', () => initPlayer());
+
+  // ---------- auto-recover saat kembali ke tab ----------
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && playerError) {
+      initGen++; // batalkan retry lama
+      initPlayer();
+    }
+  });
+
+  // ---------- mulai ----------
+  initPlayer();
+</script>

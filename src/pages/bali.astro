@@ -1,0 +1,255 @@
+---
+import Layout from '../layouts/Layout.astro';
+import VideoCardBali from '../components/VideoCardBali.astro';
+import Skeleton from '../components/Skeleton.astro';
+import Icon from '../components/Icon.astro';
+import { baliCameras, baliCategories, baliSearchText } from '../lib/cameras-bali';
+
+const q = (Astro.url.searchParams.get('q') || '').trim().toLowerCase();
+const qEff = q.length >= 3 ? q : '';
+const k = Astro.url.searchParams.get('k') || 'all';
+
+const cats = baliCategories();
+
+const filtered = baliCameras.filter((c) => {
+  const matchQ = !qEff || baliSearchText(c).includes(qEff);
+  const matchK = k === 'all' || c.kategori === k;
+  return matchQ && matchK;
+});
+
+const headingParts: string[] = [];
+if (qEff) headingParts.push(`"${qEff}"`);
+if (k !== 'all') headingParts.push(k);
+const heading = headingParts.length ? `Hasil untuk ${headingParts.join(' • ')}` : 'Semua Kamera CCTV Bali';
+---
+
+<Layout
+  page="home"
+  title="CCTV Bali — Live Streaming Kamera Luar Denpasar"
+  description="Pantau 86+ kamera CCTV Bali di luar Kota Denpasar (Badung, Gianyar, Karangasem, Buleleng, dll) secara real-time."
+>
+  <!-- Chip filter -->
+  <div class="sticky top-[calc(3.5rem+env(safe-area-inset-top,0px))] z-20 border-b border-ink5/50 bg-ink/95 backdrop-blur">
+    <div class="no-scrollbar flex gap-2 overflow-x-auto px-4 py-3 lg:px-6">
+      <button data-chip data-k="all" class="chip">Semua</button>
+      {cats.map((c) => (
+        <button data-chip data-k={c.name} class="chip">
+          {c.name}
+          <span class="count">{c.count}</span>
+        </button>
+      ))}
+    </div>
+  </div>
+
+  <!-- Grid kamera -->
+  <div class="px-4 py-4 lg:px-6 lg:py-5">
+    <div class="mb-4 flex items-center justify-between gap-4">
+      <div class="min-w-0">
+        <h1 id="result-heading" class="text-lg font-semibold">{heading}</h1>
+        <p class="mt-0.5 text-xs text-dim">
+          Sumber: Bali Satu Data — kamera di luar Kota Denpasar (Badung, Gianyar, Karangasem, Bangli, Klungkung, Buleleng, Jembrana).
+        </p>
+      </div>
+      <span id="result-count" class="shrink-0 text-sm text-dim">{filtered.length} kamera</span>
+    </div>
+
+    <div class="relative">
+      <!-- Skeleton loading saat halaman dibuka -->
+      <div data-skeleton class="pointer-events-none absolute inset-0 z-10">
+        <div class="grid grid-cols-1 gap-x-4 gap-y-7 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {Array.from({ length: 12 }).map(() => <Skeleton kind="card" />)}
+        </div>
+      </div>
+
+      <!-- Konten asli -->
+      <div data-reveal>
+        <div class="grid grid-cols-1 gap-x-4 gap-y-7 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {baliCameras.map((c) => (
+            <VideoCardBali camera={c} />
+          ))}
+        </div>
+
+        <!-- Load more -->
+        <div id="loadmore-wrap" class="mt-10 flex flex-col items-center gap-3">
+          <button
+            id="btn-loadmore"
+            class="flex items-center gap-2 rounded-full border border-ink5 bg-ink3 px-6 py-2.5 text-sm font-medium transition-colors hover:bg-ink4"
+          >
+            <Icon name="more" class="h-4 w-4" />
+            Muat Lebih Banyak
+          </button>
+          <p id="loadmore-info" class="text-xs text-dim"></p>
+        </div>
+      </div>
+
+      <div id="empty-state" class="hidden py-24 text-center text-dim">
+        <Icon name="search" class="mx-auto mb-4 h-12 w-12 opacity-40" />
+        <p class="font-medium text-snow">Kamera tidak ditemukan</p>
+        <p class="mt-1 text-sm">Coba kata kunci atau kategori lain.</p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<script>
+  interface FilterState {
+    q: string;
+    k: string;
+  }
+
+  const state: FilterState = { q: '', k: 'all' };
+
+  const params = new URLSearchParams(location.search);
+  state.q = params.get('q')?.trim().toLowerCase() || '';
+  state.k = params.get('k') || 'all';
+
+  const cards = Array.from(document.querySelectorAll<HTMLElement>('[data-cam-card]'));
+  const chips = Array.from(document.querySelectorAll<HTMLElement>('[data-chip]'));
+  const heading = document.getElementById('result-heading');
+  const countEl = document.getElementById('result-count');
+  const emptyEl = document.getElementById('empty-state');
+
+  const BATCH = 24;
+  let visibleCount = BATCH;
+  const loadMoreWrap = document.getElementById('loadmore-wrap');
+  const btnLoadMore = document.getElementById('btn-loadmore') as HTMLButtonElement | null;
+  const loadMoreInfo = document.getElementById('loadmore-info');
+
+  function qEff() {
+    return state.q.length >= 3 ? state.q : '';
+  }
+  function filterActive() {
+    return !!(qEff() || state.k !== 'all');
+  }
+
+  function updateLoadMore() {
+    if (!loadMoreWrap) return;
+    if (filterActive()) {
+      loadMoreWrap.classList.add('hidden');
+      if (loadMoreInfo) loadMoreInfo.textContent = '';
+      return;
+    }
+    loadMoreWrap.classList.remove('hidden');
+    const remaining = cards.length - visibleCount;
+    if (remaining <= 0) {
+      btnLoadMore?.classList.add('hidden');
+      if (loadMoreInfo) loadMoreInfo.textContent = `Semua ${cards.length} kamera sudah dimuat`;
+    } else {
+      btnLoadMore?.classList.remove('hidden');
+      if (loadMoreInfo) loadMoreInfo.textContent = `Menampilkan ${Math.min(visibleCount, cards.length)} dari ${cards.length} kamera`;
+    }
+  }
+
+  btnLoadMore?.addEventListener('click', () => {
+    if (btnLoadMore.dataset.loading) return;
+    btnLoadMore.dataset.loading = '1';
+    const original = btnLoadMore.innerHTML;
+    btnLoadMore.innerHTML =
+      '<span class="h-4 w-4 animate-spin rounded-full border-2 border-ink5 border-t-snow"></span> Memuat...';
+    btnLoadMore.classList.add('pointer-events-none', 'opacity-70');
+    window.setTimeout(() => {
+      visibleCount += BATCH;
+      apply();
+      btnLoadMore.innerHTML = original;
+      btnLoadMore.classList.remove('pointer-events-none', 'opacity-70');
+      delete btnLoadMore.dataset.loading;
+    }, 450);
+  });
+
+  function apply() {
+    let n = 0;
+    const query = qEff();
+    const batchMode = !filterActive();
+    cards.forEach((card, idx) => {
+      const hit = !query || (card.dataset.search || '').includes(query);
+      const hitK = state.k === 'all' || card.dataset.kat === state.k;
+      const show = hit && hitK && (batchMode ? idx < visibleCount : true);
+      card.classList.toggle('hidden', !show);
+      if (show) n++;
+    });
+
+    for (const chip of chips) {
+      const active = chip.dataset.k === state.k;
+      chip.classList.toggle('chip-active', active);
+    }
+
+    if (countEl) countEl.textContent = `${n} kamera`;
+    if (emptyEl) emptyEl.classList.toggle('hidden', n > 0);
+
+    if (heading) {
+      const parts: string[] = [];
+      if (query) parts.push(`"${query}"`);
+      if (state.k !== 'all') parts.push(state.k);
+      heading.textContent = parts.length ? `Hasil untuk ${parts.join(' • ')}` : 'Semua Kamera CCTV Bali';
+    }
+    updateLoadMore();
+  }
+
+  function syncUrl(replace = false) {
+    const url = new URL(location.href);
+    const query = qEff();
+    if (query) url.searchParams.set('q', query);
+    else url.searchParams.delete('q');
+    if (state.k === 'all') url.searchParams.delete('k');
+    else url.searchParams.set('k', state.k);
+    const method = replace ? 'replaceState' : 'pushState';
+    history[method]({}, '', url.pathname + url.search);
+  }
+
+  function setState(patch: Partial<FilterState>, replace = false) {
+    Object.assign(state, patch);
+    apply();
+    syncUrl(replace);
+  }
+
+  chips.forEach((chip) => {
+    chip.addEventListener('click', () => {
+      setState({ k: chip.dataset.k || 'all' });
+    });
+  });
+
+  let debounce: number | undefined;
+  document.querySelectorAll<HTMLInputElement>('.js-search-input').forEach((inp) => {
+    inp.addEventListener('input', () => {
+      window.clearTimeout(debounce);
+      debounce = window.setTimeout(() => {
+        setState({ q: inp.value.trim().toLowerCase() }, true);
+      }, 150);
+    });
+  });
+
+  const w = window as any;
+  w.__baliFilter = ({ q }: { q: string }) => {
+    setState({ q: q.toLowerCase() });
+    document.querySelectorAll<HTMLInputElement>('.js-search-input').forEach((inp) => {
+      inp.value = q;
+    });
+  };
+
+  // Tautan navigasi sidebar data-nav di halaman ini: jika menuju /bali, filter instan;
+  // selain itu biarkan navigasi normal.
+  document.addEventListener('click', (e) => {
+    const a = (e.target as HTMLElement).closest<HTMLAnchorElement>('a[data-nav]');
+    if (!a) return;
+    const href = a.getAttribute('href') || '/';
+    const u = new URL(href, location.origin);
+    if (u.pathname !== '/bali') return;
+    e.preventDefault();
+    state.q = u.searchParams.get('q')?.trim().toLowerCase() || '';
+    state.k = u.searchParams.get('k') || 'all';
+    history.pushState({}, '', u.pathname + u.search);
+    apply();
+    document.querySelectorAll<HTMLInputElement>('.js-search-input').forEach((inp) => {
+      inp.value = state.q;
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  window.addEventListener('popstate', apply);
+
+  document.querySelectorAll<HTMLInputElement>('.js-search-input').forEach((inp) => {
+    inp.value = state.q;
+  });
+
+  apply();
+</script>

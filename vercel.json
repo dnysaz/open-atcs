@@ -7,6 +7,10 @@
     {
       "source": "/stream/:path*",
       "destination": "/api/stream?path=:path*"
+    },
+    {
+      "source": "/bali-stream/:path*",
+      "destination": "/api/bali-stream?path=:path*"
     }
   ],
   "functions": {
@@ -15,6 +19,10 @@
       "memory": 1024
     },
     "api/stream.mjs": {
+      "maxDuration": 10,
+      "memory": 1024
+    },
+    "api/bali-stream.mjs": {
       "maxDuration": 10,
       "memory": 1024
     },
