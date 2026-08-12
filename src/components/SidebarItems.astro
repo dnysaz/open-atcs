@@ -1,9 +1,10 @@
 ---
 import Icon from './Icon.astro';
 import { categories, categoryIcon, offlineCount, onlineCount } from '../lib/cameras';
-import { baliCameras } from '../lib/cameras-bali';
+import { baliCameras, baliCategories, baliCategoryIcon } from '../lib/cameras-bali';
 
 const cats = categories();
+const baliCats = baliCategories();
 const live = onlineCount();
 const off = offlineCount();
 const baliCount = baliCameras.length;
@@ -36,18 +37,6 @@ function isActive(href: string): boolean {
     <span class="sb-label">Peta Lokasi</span>
   </a>
 
-  <div class="mx-3 my-3 border-t border-ink5/60"></div>
-  <p class="sb-label px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-dim">Kategori</p>
-
-  {cats.map((c) => (
-    <a href={`/?k=${encodeURIComponent(c.name)}`} data-nav class={`sb-link ${isActive(`/?k=${encodeURIComponent(c.name)}`) ? 'active' : ''}`}>
-      <Icon name={categoryIcon(c.name)} class="h-6 w-6 shrink-0" />
-      <span class="sb-label flex-1">{c.name}</span>
-      <span class="sb-count text-xs text-dim">{c.count}</span>
-    </a>
-  ))}
-
-  <div class="mx-3 my-3 border-t border-ink5/60"></div>
   <!-- Kamera Offline: klik untuk membuka 2 kartu (Denpasar / Bali) -->
   <div>
     <button type="button" data-offline-toggle class="sb-link w-full" aria-expanded="false" aria-controls="offline-panel">
@@ -76,6 +65,28 @@ function isActive(href: string): boolean {
       </a>
     </div>
   </div>
+
+  <div class="mx-3 my-3 border-t border-ink5/60"></div>
+  <p class="sb-label px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-dim">Kategori Denpasar</p>
+
+  {cats.map((c) => (
+    <a href={`/?k=${encodeURIComponent(c.name)}`} data-nav class={`sb-link ${isActive(`/?k=${encodeURIComponent(c.name)}`) ? 'active' : ''}`}>
+      <Icon name={categoryIcon(c.name)} class="h-6 w-6 shrink-0" />
+      <span class="sb-label flex-1">{c.name}</span>
+      <span class="sb-count text-xs text-dim">{c.count}</span>
+    </a>
+  ))}
+
+  <div class="mx-3 my-3 border-t border-ink5/60"></div>
+  <p class="sb-label px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-dim">Kategori Bali</p>
+
+  {baliCats.map((c) => (
+    <a href={`/bali?k=${encodeURIComponent(c.name)}`} data-nav class={`sb-link ${isActive(`/bali?k=${encodeURIComponent(c.name)}`) ? 'active' : ''}`}>
+      <Icon name={baliCategoryIcon(c.name)} class="h-6 w-6 shrink-0 text-orange-500" />
+      <span class="sb-label flex-1">{c.name}</span>
+      <span class="sb-count text-xs text-dim">{c.count}</span>
+    </a>
+  ))}
 
   <div class="mx-3 my-3 border-t border-ink5/60"></div>
   <!-- Toggle tema terang/gelap -->
