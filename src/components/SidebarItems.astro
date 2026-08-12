@@ -28,19 +28,19 @@ function isActive(href: string): boolean {
     <span class="sb-count text-xs text-dim">{live}</span>
   </a>
   <a href="/bali" data-nav class={`sb-link ${isActive('/bali') ? 'active' : ''}`}>
-    <Icon name="tv" class="h-6 w-6 shrink-0 text-orange-500" />
+    <Icon name="tv" class="h-6 w-6 shrink-0" />
     <span class="sb-label flex-1">CCTV Bali</span>
     <span class="sb-count text-xs text-dim">{baliCount}</span>
   </a>
   <a href="/peta" data-nav class={`sb-link ${isActive('/peta') ? 'active' : ''}`}>
-    <Icon name="map" class="h-6 w-6 shrink-0 text-emerald-500" />
+    <Icon name="map" class="h-6 w-6 shrink-0" />
     <span class="sb-label">Peta Lokasi</span>
   </a>
 
   <!-- Kamera Offline: klik untuk membuka 2 kartu (Denpasar / Bali) -->
   <div>
     <button type="button" data-offline-toggle class="sb-link w-full" aria-expanded="false" aria-controls="offline-panel">
-      <Icon name="warning" class="h-6 w-6 shrink-0 text-yellow-500" />
+      <Icon name="warning" class="h-6 w-6 shrink-0" />
       <span class="sb-label flex-1">Kamera Offline</span>
       <Icon name="chevron-right" class="offline-chev h-4 w-4 shrink-0 text-dim transition-transform" />
     </button>
@@ -50,7 +50,7 @@ function isActive(href: string): boolean {
         data-nav
         class={`sb-link rounded-lg bg-ink2 py-2 text-sm ${isActive('/?s=offline') ? 'active' : ''}`}
       >
-        <Icon name="pin" class="h-4 w-4 shrink-0 text-brand" />
+        <Icon name="pin" class="h-4 w-4 shrink-0" />
         <span class="sb-label flex-1">Offline Denpasar</span>
         <span class="sb-count text-xs font-semibold text-dim">{off}</span>
       </a>
@@ -59,7 +59,7 @@ function isActive(href: string): boolean {
         data-nav
         class={`sb-link rounded-lg bg-ink2 py-2 text-sm ${isActive('/bali?s=offline') ? 'active' : ''}`}
       >
-        <Icon name="tv" class="h-4 w-4 shrink-0 text-orange-500" />
+        <Icon name="tv" class="h-4 w-4 shrink-0" />
         <span class="sb-label flex-1">Offline Bali</span>
         <span class="sb-count text-xs font-semibold text-dim">{baliOff}</span>
       </a>
@@ -67,26 +67,34 @@ function isActive(href: string): boolean {
   </div>
 
   <div class="mx-3 my-3 border-t border-ink5/60"></div>
-  <p class="sb-label px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-dim">Kategori Denpasar</p>
-
-  {cats.map((c) => (
-    <a href={`/?k=${encodeURIComponent(c.name)}`} data-nav class={`sb-link ${isActive(`/?k=${encodeURIComponent(c.name)}`) ? 'active' : ''}`}>
-      <Icon name={categoryIcon(c.name)} class="h-6 w-6 shrink-0" />
-      <span class="sb-label flex-1">{c.name}</span>
-      <span class="sb-count text-xs text-dim">{c.count}</span>
-    </a>
-  ))}
+  <button type="button" data-cats-toggle data-cats-panel="cats-dps" class="sb-link w-full" aria-expanded="true" aria-controls="cats-dps">
+    <span class="sb-label flex-1 text-xs font-semibold uppercase tracking-wider text-dim">ATCS Denpasar</span>
+    <Icon name="chevron-down" class="cats-chev h-4 w-4 shrink-0 text-dim transition-transform" />
+  </button>
+  <div id="cats-dps" class="space-y-0.5">
+    {cats.map((c) => (
+      <a href={`/?k=${encodeURIComponent(c.name)}`} data-nav class={`sb-link ${isActive(`/?k=${encodeURIComponent(c.name)}`) ? 'active' : ''}`}>
+        <Icon name={categoryIcon(c.name)} class="h-6 w-6 shrink-0" />
+        <span class="sb-label flex-1">{c.name}</span>
+        <span class="sb-count text-xs text-dim">{c.count}</span>
+      </a>
+    ))}
+  </div>
 
   <div class="mx-3 my-3 border-t border-ink5/60"></div>
-  <p class="sb-label px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-dim">Kategori Bali</p>
-
-  {baliCats.map((c) => (
-    <a href={`/bali?k=${encodeURIComponent(c.name)}`} data-nav class={`sb-link ${isActive(`/bali?k=${encodeURIComponent(c.name)}`) ? 'active' : ''}`}>
-      <Icon name={baliCategoryIcon(c.name)} class="h-6 w-6 shrink-0 text-orange-500" />
-      <span class="sb-label flex-1">{c.name}</span>
-      <span class="sb-count text-xs text-dim">{c.count}</span>
-    </a>
-  ))}
+  <button type="button" data-cats-toggle data-cats-panel="cats-bali" class="sb-link w-full" aria-expanded="true" aria-controls="cats-bali">
+    <span class="sb-label flex-1 text-xs font-semibold uppercase tracking-wider text-dim">ATCS Bali</span>
+    <Icon name="chevron-down" class="cats-chev h-4 w-4 shrink-0 text-dim transition-transform" />
+  </button>
+  <div id="cats-bali" class="space-y-0.5">
+    {baliCats.map((c) => (
+      <a href={`/bali?k=${encodeURIComponent(c.name)}`} data-nav class={`sb-link ${isActive(`/bali?k=${encodeURIComponent(c.name)}`) ? 'active' : ''}`}>
+        <Icon name={baliCategoryIcon(c.name)} class="h-6 w-6 shrink-0" />
+        <span class="sb-label flex-1">{c.name}</span>
+        <span class="sb-count text-xs text-dim">{c.count}</span>
+      </a>
+    ))}
+  </div>
 
   <div class="mx-3 my-3 border-t border-ink5/60"></div>
   <!-- Toggle tema terang/gelap -->
@@ -148,4 +156,23 @@ function isActive(href: string): boolean {
     offPanel.classList.remove('hidden');
     syncOfflineOpen();
   }
+
+  // ---------- ATCS Denpasar / ATCS Bali: show-hide sub kategori ----------
+  const catsToggles = Array.from(document.querySelectorAll<HTMLElement>('[data-cats-toggle]'));
+
+  function syncCats(toggle: HTMLElement, open: boolean) {
+    toggle.setAttribute('aria-expanded', String(open));
+    const chev = toggle.querySelector('.cats-chev');
+    if (chev) chev.style.transform = open ? 'rotate(0deg)' : 'rotate(-90deg)';
+  }
+
+  catsToggles.forEach((toggle) => {
+    const panel = document.getElementById(toggle.dataset.catsPanel || '');
+    if (!panel) return;
+    toggle.addEventListener('click', () => {
+      const open = panel.classList.toggle('hidden');
+      syncCats(toggle, !open);
+    });
+    syncCats(toggle, !panel.classList.contains('hidden'));
+  });
 </script>
